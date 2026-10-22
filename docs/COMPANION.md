@@ -63,10 +63,12 @@ target/release/atlas-host \
 ```
 
 The packaged desktop can start its bundled companion service and UI resources
-from Phone settings. The public origin must already be reachable through trusted
+from Phone settings. The configured private origin must be reachable through trusted
 HTTPS. Both processes use the `org.birthright.atlas` OS data directory unless an
 explicit `--data-dir` is provided. Do not point a synthetic test host at personal
 data. The default port is 47832; `--port` changes it on both server/control calls.
+The desktop-managed host stops when Atlas exits; start it again from Phone
+settings after reopening Atlas.
 
 ## A private HTTPS route for iPhone
 
@@ -90,30 +92,40 @@ public endpoint automatically. Tailscale Funnel is **not** required.
 4. On iPhone, with Tailscale connected, open
    `https://YOUR-DESKTOP.YOUR-TAILNET.ts.net/companion` in Safari. There must be
    no certificate warning. Never disable TLS checks or browser security.
-5. In Safari, Share → Add to Home Screen. Launch Atlas from its new icon. Issue
-   a pairing code on the desktop and enter it with a recognizable phone name.
+5. In Safari, open Share → Add to Home Screen, turn on **Open as Web App** when
+   offered, then tap Add. If Add to Home Screen is absent, use Edit Actions to
+   add it. Launch Atlas from its new icon. Issue a pairing code on the desktop
+   and enter it with a recognizable phone name.
 
 Other existing trusted private HTTPS reverse proxies can be used. They must
 route only the intended host to loopback port 47832 and preserve the configured
 origin. Do not expose a plain `http://192.168…` address as a finished PWA solution.
 
-Official references: [Tailscale Serve](https://tailscale.com/kb/1242/tailscale-serve),
-[Apple Home Screen web apps](https://support.apple.com/guide/iphone/turn-a-website-into-an-app-iph42ab2f3a7/ios).
-These sites were blocked by this build environment's network policy, so their
-current account/UI details could not be rechecked here. Validate the current
-official instructions during account configuration.
+Official references, successfully checked over verified HTTPS on **2026-10-22**:
+[Tailscale Serve CLI](https://tailscale.com/docs/reference/tailscale-cli/serve)
+documents `--bg`, HTTPS as the default serving mode with an automatically
+provisioned certificate, and loopback HTTP proxy targets. [Apple: Turn a website
+into an app](https://support.apple.com/guide/iphone/open-as-web-app-iphea86e5236/ios)
+documents Share → Add to Home Screen → Open as Web App → Add. The former Apple
+link now redirects to its bookmark guide, so this link points to the current web
+app instructions. This documentation check does not validate an authorized
+tailnet, a device certificate, or Safari installation on the owner's iPhone.
 
 ## Pair, inspect, revoke
 
-With the host running, use Phone settings or the local command line. On Windows
-the packaged binary is `atlas-host.exe`; other platforms use `atlas-host`.
+With the host running, use Phone settings: **Pair an iPhone** issues a code and
+shows its URL/expiry; the paired-device list provides **Revoke**. For the source
+build started above, run these commands from the same repository directory:
 
 ```sh
-atlas-host --pair
-atlas-host --devices
-atlas-host --revoke DEVICE_ID
+target/release/atlas-host --pair
+target/release/atlas-host --devices
+target/release/atlas-host --revoke DEVICE_ID
 ```
 
+For an installed app, prefer Phone settings or replace `target/release/atlas-host`
+with the full path to its bundled host executable. On Windows that executable is
+`atlas-host.exe`; installation does not require adding it to the shell's PATH.
 Pass the same `--data-dir`/`--port` options if you overrode them when starting.
 The pairing response contains `code`, `expiresAt`, and the companion URL. The
 local control credential is kept in a private file and never sent to the phone.

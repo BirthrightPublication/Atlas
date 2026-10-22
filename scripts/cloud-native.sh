@@ -6,10 +6,14 @@ set -euo pipefail
 cd /workspace/Atlas
 source scripts/cloud-env.sh
 atlas_union=$(mktemp -d /workspace/atlas-native-usr.XXXXXX)
-atlas_pkgconfig=$(mktemp -d /workspace/atlas-native-pkgconfig.XXXXXX)
-trap 'rm -rf "$atlas_union" "$atlas_pkgconfig"' EXIT
+# Keep this path stable: changing PKG_CONFIG_PATH forces Cargo to rebuild the
+# entire GTK/WebKit dependency tree even when SDK contents are unchanged.
+atlas_pkgconfig=/workspace/atlas-native-pkgconfig
+mkdir -p "$atlas_pkgconfig"
+trap 'rm -rf "$atlas_union"' EXIT
 python3 - "$atlas_union" "$atlas_pkgconfig" <<'PY'
 from pathlib import Path
+import shutil
 import sys
 system = Path('/usr')
 sdk = Path('/workspace/atlas-sysroot/usr')
@@ -33,14 +37,43 @@ def merge(relative):
         else:
             destination.symlink_to(Path('/tmp/atlas-original-usr') / rel)
 merge(Path())
+# The GTK bundler copies these runtime trees with cp --archive/realpath. Give
+# them real files at canonical paths instead of links outside the namespace;
+# all other SDK/system entries remain lightweight read-only links.
+runtime_trees = [
+    'lib/x86_64-linux-gnu/gtk-3.0',
+    'lib/x86_64-linux-gnu/gio/modules',
+    'lib/x86_64-linux-gnu/gdk-pixbuf-2.0',
+    'lib/x86_64-linux-gnu/girepository-1.0',
+    'share/glib-2.0/schemas',
+]
+for name in runtime_trees:
+    relative = Path(name)
+    for parent in reversed(relative.parents):
+        destination = output / parent
+        if destination.is_symlink():
+            destination.unlink()
+            destination.mkdir()
+            merge(parent)
+    destination = output / relative
+    if destination.is_symlink(): destination.unlink()
+    elif destination.exists(): shutil.rmtree(destination)
+    for source in [system / relative, sdk / relative]:
+        if source.is_dir():
+            shutil.copytree(source, destination, dirs_exist_ok=True, ignore_dangling_symlinks=True)
 for source in sdk.glob('**/pkgconfig/*.pc'):
-    (pkgconfig / source.name).write_text(source.read_text().replace(str(sdk), '/usr'))
+    destination = pkgconfig / source.name
+    content = source.read_text().replace(str(sdk), '/usr')
+    if not destination.exists() or destination.read_text() != content:
+        destination.write_text(content)
 PY
 export PKG_CONFIG_PATH="$atlas_pkgconfig"
 export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu
 export LIBRARY_PATH=/usr/lib/x86_64-linux-gnu
 export XDG_CACHE_HOME=/workspace/atlas-build-cache
-export ATLAS_SDK_DOCS=/workspace/atlas-sysroot/usr/share/doc
+# linuxdeploy cannot map namespace symlinks back to dpkg ownership, so retain
+# the combined SDK/system notices explicitly in this cloud build.
+export ATLAS_SDK_DOCS=/usr/share/doc
 bwrap --ro-bind / / --bind /workspace /workspace --bind /tmp /tmp \
   --ro-bind /usr /tmp/atlas-original-usr --ro-bind "$atlas_union" /usr \
   --dev /dev --proc /proc "$@"

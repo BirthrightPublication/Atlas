@@ -313,6 +313,16 @@ impl EmailService {
             }
             quote_imap(&config.username)?;
             quote_imap(&config.folder)?;
+            // A settings form does not receive the PEM certificate in status.
+            // Preserve its existing trust anchor for the same endpoint when the
+            // field is omitted; explicit null is an intentional removal.
+            if payload.get("certificatePem").is_none() {
+                if let Some(previous) = self.state()?.config.as_ref() {
+                    if previous.provider == config.provider && previous.host == config.host {
+                        config.certificate_pem = previous.certificate_pem.clone();
+                    }
+                }
+            }
             if let Some(pem) = &config.certificate_pem {
                 if pem.len() > 32768 {
                     return Err("Trust certificate is too large.".into());
@@ -1682,5 +1692,95 @@ mod tests {
         assert!(service.configure(&json!({"provider":"imap","host":"imap.example.invalid","username":"synthetic@example.invalid","password":"synthetic-test-only"})).is_err());
         assert!(!dir.path().join("email.json").exists());
         assert_eq!(service.status().unwrap()["secureStorageAvailable"], false);
+    }
+    // Public, synthetic certificate generated for parser/configuration tests.
+    // Its throwaway private key is not retained or distributed.
+    const TEST_TRUST_CERT: &str = r#"-----BEGIN CERTIFICATE-----
+MIIDGjCCAgKgAwIBAgIUQA6G7Zb0gWkHSTGNTgTwGl5kh/wwDQYJKoZIhvcNAQEL
+BQAwFDESMBAGA1UEAwwJMTI3LjAuMC4xMB4XDTI2MTAyMjIwNTU0MVoXDTM2MTAx
+OTIwNTU0MVowFDESMBAGA1UEAwwJMTI3LjAuMC4xMIIBIjANBgkqhkiG9w0BAQEF
+AAOCAQ8AMIIBCgKCAQEA37SSD722tlogydfFgM1gshFAPk7hB0cZhVDWHRRMeqki
+q05XD+FUIFQFMpKK+f++zTL0FDni4sdy6NVEtgWJm9IOT0IblaXZjK/tfFFXrYKO
+xJFmqg7kD+BGt8xFhbZBK63a+YXUSOBt0nlZHuPOwYmaYOl4TXVr7ByDp9AOP6hR
+4FLS49cNLEGum2IE4kBoA2iwkAePWObj4mMSgd6HAsqoaiYeeVwMU6+YQLtg5YUn
+EURV05GNx2jI24l9f01fft1Zpe05wJOEj4T2KCCOdBotzxqJDUXczq4obeuQXbQx
+WGBujfJpNRKU584+bUPO4B3i5dR0zB7uK9KtvzHD8wIDAQABo2QwYjAdBgNVHQ4E
+FgQUOEpcixWAa5/6/7vyxPw5vr3kvxQwHwYDVR0jBBgwFoAUOEpcixWAa5/6/7vy
+xPw5vr3kvxQwDwYDVR0TAQH/BAUwAwEB/zAPBgNVHREECDAGhwR/AAABMA0GCSqG
+SIb3DQEBCwUAA4IBAQA/jEw8uTACdg918qnZnDZAL4MQ6wm5jg6/joKfiV67pYCw
+Ydqf1Yvibpg+coRBld/gSnIOkEbJktL3Ywr5H3TwCjeJuNvnhiZSbXN8BpvPnj1P
+lrqvz8iPc7bsclDB9E8y6EcLeBPg1P2T4aU7my7gkCeIHlDijm5YT9xkJjcMeanK
+QONHeZiP9P1IKIU7fb/VkO7XibQq9l+m6uUg/m/ofOOLZIVvFWKuCVz7JMG/OmSP
+n0zCYFIFQ+tZzlYioJtRbS+R3PFXohqwgFwecuOfKrdjl2tPA29nnoguDW4FFn2M
+6Cl1UTRonP/jMT0b73ZkzgJUTFRid5IWcYpJzwBa
+-----END CERTIFICATE-----"#;
+
+    #[test]
+    fn omitted_trust_certificate_survives_filter_edits_but_null_removes_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let service =
+            EmailService::with_store(dir.path(), Arc::new(MemorySecrets::default())).unwrap();
+        service.configure(&json!({"provider":"proton-bridge","host":"127.0.0.1","username":"synthetic@example.invalid","certificatePem":TEST_TRUST_CERT})).unwrap();
+        let updated = service.configure(&json!({"provider":"proton-bridge","host":"127.0.0.1","username":"synthetic@example.invalid","filter":{"senders":["booking@example.invalid"]}})).unwrap();
+        assert_eq!(updated["hasCustomTrustCertificate"], true);
+        assert_eq!(
+            service
+                .state()
+                .unwrap()
+                .config
+                .as_ref()
+                .unwrap()
+                .certificate_pem
+                .as_deref(),
+            Some(TEST_TRUST_CERT)
+        );
+        let reloaded =
+            EmailService::with_store(dir.path(), Arc::new(MemorySecrets::default())).unwrap();
+        assert_eq!(
+            reloaded
+                .state()
+                .unwrap()
+                .config
+                .as_ref()
+                .unwrap()
+                .certificate_pem
+                .as_deref(),
+            Some(TEST_TRUST_CERT)
+        );
+        let cleared = service.configure(&json!({"provider":"proton-bridge","host":"127.0.0.1","username":"synthetic@example.invalid","certificatePem":null})).unwrap();
+        assert_eq!(cleared["hasCustomTrustCertificate"], false);
+        assert!(service
+            .state()
+            .unwrap()
+            .config
+            .as_ref()
+            .unwrap()
+            .certificate_pem
+            .is_none());
+    }
+
+    #[test]
+    fn changing_host_or_provider_never_inherits_the_previous_trust_certificate() {
+        for next in [
+            json!({"provider":"proton-bridge","host":"localhost","username":"synthetic@example.invalid"}),
+            json!({"provider":"imap","host":"127.0.0.1","username":"synthetic@example.invalid"}),
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let service =
+                EmailService::with_store(dir.path(), Arc::new(MemorySecrets::default())).unwrap();
+            service.configure(&json!({"provider":"proton-bridge","host":"127.0.0.1","username":"synthetic@example.invalid","certificatePem":TEST_TRUST_CERT})).unwrap();
+            assert_eq!(
+                service.configure(&next).unwrap()["hasCustomTrustCertificate"],
+                false
+            );
+            assert!(service
+                .state()
+                .unwrap()
+                .config
+                .as_ref()
+                .unwrap()
+                .certificate_pem
+                .is_none());
+        }
     }
 }

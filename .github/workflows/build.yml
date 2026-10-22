@@ -2,7 +2,7 @@ name: Validate and package
 
 on:
   push:
-    branches: [main, 'codex/**']
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -53,8 +53,18 @@ jobs:
       - name: Build native installer
         run: node scripts/build-desktop.mjs --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
       - name: Stage exact artifacts
+        id: stage
         run: node scripts/stage-release.mjs ${{ matrix.target }}
+      - name: Verify installed Windows application
+        if: runner.os == 'Windows'
+        shell: pwsh
+        timeout-minutes: 7
+        run: |
+          $config = Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
+          $installer = Join-Path $PWD "release/windows-x86_64/Birthright-Atlas_$($config.version)_windows_x86_64-setup.exe"
+          ./scripts/smoke-windows.ps1 -InstallerPath $installer
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: ${{ always() && steps.stage.outcome == 'success' }}
         with:
           name: atlas-${{ matrix.target }}
           path: release/

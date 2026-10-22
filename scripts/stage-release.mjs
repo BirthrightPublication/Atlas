@@ -14,7 +14,7 @@ const plans = {
   ] },
   'x86_64-unknown-linux-gnu': { platform: 'linux-x86_64', files: [
     [`appimage/${name}_${version}_amd64.AppImage`, `Birthright-Atlas_${version}_linux_x86_64.AppImage`, true],
-    [`deb/${name.toLowerCase().replaceAll(' ', '-')}_${version}_amd64.deb`, `Birthright-Atlas_${version}_linux_x86_64.deb`, false],
+    [`deb/${name}_${version}_amd64.deb`, `Birthright-Atlas_${version}_linux_x86_64.deb`, false],
   ] },
   'aarch64-apple-darwin': { platform: 'darwin-aarch64', files: [
     [`dmg/${name}_${version}_aarch64.dmg`, `Birthright-Atlas_${version}_macos_aarch64.dmg`, false],

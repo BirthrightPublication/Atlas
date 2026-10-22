@@ -58,9 +58,9 @@ From the repository root:
 
 ```sh
 npm ci
+npm run build
 cargo test --workspace --locked
 node --test scripts/release.test.mjs
-npm run build
 npm run desktop
 ```
 

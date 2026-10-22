@@ -27,10 +27,17 @@ as a substitute for the required automatic integration.
    This is not the Proton account password. Keep Bridge running.
 3. In Atlas Settings select Proton Bridge. Choose STARTTLS or TLS to match Bridge;
    the usual STARTTLS port is 1143, but the values shown by Bridge are authoritative.
-   Only `localhost` and `127.0.0.1` are accepted for this connector.
-4. Export Bridge's TLS certificate and paste its PEM certificate into the trust
-   certificate field if it is not already trusted by the operating system. Use a
-   hostname included in that certificate. Atlas keeps certificate and hostname
+   Only `localhost` and `127.0.0.1` are accepted for this connector. Use
+   **`127.0.0.1` for Bridge's generated certificate**: the current official
+   certificate template includes that IP subject alternative name, not the DNS
+   name `localhost`. Changing to `localhost` can cause hostname verification to
+   fail even when the certificate is trusted.
+4. Export Bridge's TLS certificate and paste **only `cert.pem`** into the trust
+   certificate field if it is not already trusted by the operating system.
+   Bridge's export also writes `key.pem`; that is a private key and must not be
+   pasted into Atlas or committed to a repository. Atlas rejects private-key
+   content in the certificate field. Use a hostname or IP address included in
+   the actual exported certificate. Atlas keeps certificate and hostname
    verification enabled, with TLS 1.2 or newer. An untrusted or mismatched
    certificate fails visibly; there is no “ignore certificate errors” option.
 5. Save the settings and connect. Atlas authenticates over TLS and opens the
@@ -40,13 +47,29 @@ as a substitute for the required automatic integration.
 A Bridge update or account reset can rotate local connection details and the
 certificate. Update the explicitly trusted certificate after checking it in the
 local Bridge app. Never take a replacement trust certificate from an email.
+Saving a retrieval-filter change preserves the existing certificate for the same
+provider and host when the certificate field is omitted. An explicit removal
+clears it; changing provider or host never silently inherits that trust anchor.
 
-The official Bridge repository was read during implementation:
-<https://github.com/ProtonMail/proton-bridge>. Its README documents that Bridge
-must be running and uses the native credential manager on Windows/macOS and a
-Secret Service provider on Linux. Proton's web support page was not reachable
-through this build environment's network policy, so current plan terms still
-need a live recheck before release.
+Official sources rechecked on **2026-10-22**:
+
+- [Proton's IMAP setup guide](https://proton.me/support/imap-smtp-and-pop3-setup)
+  confirms that Bridge requires a paid Proton Mail plan and runs on Windows,
+  macOS, and Linux, not mobile devices.
+- [Proton's TLS connection guide](https://proton.me/support/bridge-ssl-connection-issue)
+  confirms local loopback communication and the generated self-signed
+  certificate used for STARTTLS/SSL.
+- The official Bridge
+  [certificate template](https://github.com/ProtonMail/proton-bridge/blob/b9c5dac1651437100c40896dacd778a0518a26f2/internal/certs/tls.go)
+  contains IP SAN `127.0.0.1` and no `localhost` DNS SAN. Its
+  [export implementation](https://github.com/ProtonMail/proton-bridge/blob/b9c5dac1651437100c40896dacd778a0518a26f2/internal/frontend/grpc/service_cert.go)
+  writes both `cert.pem` and `key.pem`.
+- The [official repository README](https://github.com/ProtonMail/proton-bridge)
+  documents that Bridge must be running and uses the native credential manager
+  on Windows/macOS and a Secret Service provider on Linux.
+
+These source checks establish the documented setup requirements, not successful
+authentication or TLS connectivity to an owner's installed Bridge instance.
 
 ## Other IMAP providers
 
@@ -94,7 +117,10 @@ service as `filter.query`, `filter.senders`, `filter.afterDate`, and
 `filter.labelOrFolder`; only the supported controls exposed in Settings are
 available in the normal UI.
 
-References requiring a current live recheck:
+Official references rechecked on **2026-10-22** confirm the native-app PKCE and
+loopback flow, restricted Gmail read scope, history-based sync and its HTTP 404
+full-sync fallback, and the seven-day Testing refresh-token rule:
+
 - <https://developers.google.com/identity/protocols/oauth2/native-app>
 - <https://developers.google.com/workspace/gmail/api/auth/scopes>
 - <https://developers.google.com/gmail/api/guides/sync>
@@ -121,7 +147,10 @@ interpreted as booking cancellations. Actual cancellation/refund messages are
 parsed as evidence and need review. HTML is converted to inert text; remote
 images and tracking pixels are never fetched or displayed.
 
-References requiring a current live recheck:
+Official references rechecked on **2026-10-22** confirm delegated `Mail.Read`,
+the absence of message bodies from `Mail.ReadBasic`, folder-specific delta
+continuations, and the authorization-code flow with PKCE S256:
+
 - <https://learn.microsoft.com/en-us/graph/permissions-reference>
 - <https://learn.microsoft.com/en-us/graph/delta-query-messages>
 - <https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow>
@@ -153,12 +182,16 @@ account protections and disk encryption for private database/document backups.
 Unit tests cover PKCE/read-only scopes, OAuth state rejection, no credentials in
 metadata/status, Proton loopback and TLS requirements, commit-after-import cursor
 semantics, literal-aware IMAP parsing and limits, exact sender matching, malicious
-continuation rejection, command injection rejection, and refresh-token retention.
+continuation rejection, command injection rejection, refresh-token retention,
+credential preservation when filters change, and trust-certificate preservation
+and explicit removal without carrying trust to a changed provider or host.
 These tests use synthetic fixtures and an in-memory test secret store.
 
 No personal mailbox, Proton Bridge instance, Google OAuth registration, or
 Microsoft tenant was available in the build environment. Live authorization,
 Bridge TLS trust, ongoing sync, and platform keychain access must therefore be
-verified on the owner's desktop. Google/Microsoft official web documentation
-returned a proxy CONNECT 403 during implementation; implementation against known
-API contracts is not a claim those current pages were verified.
+verified on the owner's desktop. Official Proton, Google, and Microsoft sources
+listed above were successfully read on 2026-10-22 after environment networking
+was updated. Earlier proxy CONNECT 403 failures no longer describe the outcome
+of those documentation checks. Reading documentation does not establish live
+account authorization, provider approval, or successful mailbox synchronization.

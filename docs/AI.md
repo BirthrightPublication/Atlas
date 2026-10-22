@@ -63,26 +63,79 @@ is not a verified file until startup actually checks it. `ai.cancel` kills only
 the inference process that Atlas launched. Saved configuration can be disabled
 without losing records. OCR for scanned PDFs and images is not implemented.
 
-## Evidence and current limits
+## Verified artifact catalog
 
-On 2026-10-22, the official Qwen3 GitHub README was retrieved over verified
-HTTPS. It lists dense 0.6B and 1.7B models, thinking/non-thinking modes, and
-Apache 2.0 model licensing with the actual license in each model repository:
-<https://github.com/QwenLM/Qwen3>.
+On 2026-10-22, the official Qwen model APIs, pinned repository trees, model card,
+and Apache 2.0 license were retrieved over verified HTTPS. Both official GGUF
+repositories contained **Q8_0 only**; no four-bit artifact is assumed. The
+official model card documents non-thinking mode and llama.cpp compatibility.
 
-The official llama.cpp server documentation was retrieved over verified HTTPS.
-It documents `--threads`, `--threads-batch`, `--parallel`, `--ctx-size`,
-`--api-key` / `LLAMA_API_KEY`, `--no-webui`, `--sleep-idle-seconds`, JSON-schema
-responses, and `chat_template_kwargs` including `enable_thinking: false`:
-<https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md>.
+| Candidate | Pinned official repository revision | Download bytes | Official LFS SHA-256 |
+| --- | --- | ---: | --- |
+| Qwen3-1.7B-Q8_0 | `Qwen/Qwen3-1.7B-GGUF` at `90862c4b9d2787eaed51d12237eafdfe7c5f6077` | 1,834,426,016 | `061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a` |
+| Qwen3-0.6B-Q8_0 | `Qwen/Qwen3-0.6B-GGUF` at `23749fefcc72300e3a2ad315e1317431b06b590a` | 639,446,688 | `9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031` |
 
-The cloud network proxy returned HTTP 403 for
-<https://huggingface.co/Qwen/Qwen3-1.7B>. Exact official weights, revision,
-license file, size, checksum and a compatible quantized artifact could not be
-verified here. No model was selected, downloaded, or benchmarked; no measured
-CPU/RAM claim is made. The 1.7B model and smaller 0.6B alternative remain
-candidates for evaluation. This limit does not affect deterministic imports.
+Sources: [1.7B model](https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/tree/90862c4b9d2787eaed51d12237eafdfe7c5f6077),
+[0.6B model](https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/tree/23749fefcc72300e3a2ad315e1317431b06b590a),
+and [pinned model license](https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/blob/90862c4b9d2787eaed51d12237eafdfe7c5f6077/LICENSE).
 
-The adapter's evidence/schema/checksum tests validate code behavior; they do
-not establish a successful model inference. A verified model installation and
-target-machine benchmark remain required before calling the AI feature ready.
+The official llama.cpp **b11827** release was pinned to commit
+`970b51ce7c9ba5fff0726c5e9994f1c2f0e4eedc`. The Linux x64 CPU archive,
+`llama-b11827-bin-ubuntu-x64.tar.gz` (22,343,386 bytes), was downloaded and
+verified against the GitHub release API digest:
+`7c1de2b2a139aa90e28b88d44a75f5966485604f68aa0ccdc2339959bca9b5f6`.
+The extracted `llama-server` executable has SHA-256
+`92ff7abb8a59c94a98acdbca4f50aaf54d2cb08a05fad57b254587a101366aac`.
+Its `--version` and `--help` executed successfully on the cloud Linux machine.
+The installed distribution includes dependent libraries; preserve and verify
+the complete release archive, not an executable copied away from its libraries.
+
+Pinned Windows CPU x64 and macOS arm64/x64 release archive digests are recorded
+in `scripts/install-local-ai.py` from the same official release API. Those
+platform artifacts have **not** been executed here. Source:
+<https://github.com/ggml-org/llama.cpp/releases/tag/b11827>.
+
+The actual runtime help confirms `--threads`, `--threads-batch`, `--parallel`,
+`--ctx-size`, `LLAMA_API_KEY`, `--no-webui`, and `--sleep-idle-seconds`. The
+official server documentation describes JSON-schema responses and
+`chat_template_kwargs` with `enable_thinking: false`:
+<https://github.com/ggml-org/llama.cpp/blob/970b51ce7c9ba5fff0726c5e9994f1c2f0e4eedc/tools/server/README.md>.
+
+## Reproduce installation and measurement
+
+The optional developer helper requires **Python 3.12 or newer** for
+`hashlib.file_digest` and safe tar extraction filters. It prints model/runtime
+sizes without downloading.
+Review that output before adding `--download`. It uses normal TLS verification,
+rejects HTTPS-to-HTTP redirects before issuing the redirected request, checks
+exact pinned sizes and SHA-256 hashes, and refuses mismatching existing
+files. It saves the model, runtime, inventory and machine-local settings outside
+the source checkout. Installed Atlas itself does not need Python or this helper.
+
+```sh
+python3 scripts/install-local-ai.py --model 1.7b --cache /absolute/private/atlas-models
+python3 scripts/install-local-ai.py --model 1.7b --cache /absolute/private/atlas-models --download
+cargo run -p atlas-core --example benchmark_ai -- /absolute/private/atlas-models/atlas-ai-settings.json --idle
+```
+
+The benchmark uses only three synthetic confirmations (complete, missing facts,
+and revised) through the real `ai::extract` service. JSON results contain cold
+and warm wall time, usage counts, retained/rejected fields, peak child RSS on
+Linux, cancellation results, and optional idle process shutdown. Performance
+applies only to the measured hardware and fixtures. The cloud machine reports
+an AMD EPYC 9V74 host, a four-CPU cgroup quota, and a 32 GiB memory cgroup limit;
+the inference configuration remains capped at two processing/generation threads.
+
+Current blocker: model metadata is accessible, but the GGUF download redirects
+to `us.aws.cdn.hf.co`, where the active cloud egress proxy returned CONNECT HTTP
+403. That exact CDN hostname was added to the saved environment configuration
+draft while preserving existing destinations; draft saving did not establish
+active access. The actual model bytes have **not** been verified locally or
+loaded, and no model inference, CPU latency, token-rate, or peak-RAM result is
+claimed. After active egress permits the CDN, run the commands above and record
+their actual results. No default model is enabled pending that evaluation.
+
+The adapter's passing evidence/schema/checksum tests and the compiled benchmark
+harness establish code behavior, not successful inference. No OCR for scanned
+documents or images is implemented. These limitations do not affect ordinary
+parsers, calendar, budgeting, or reminders.

@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir, copyFile, chmod, readdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, copyFile, chmod, readdir, rm } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
@@ -46,6 +46,9 @@ await writeFile('src-tauri/tauri.bundle.conf.json', JSON.stringify({
   build: { beforeBuildCommand: '' },
   bundle: { externalBin: ['binaries/atlas-host'], resources: { '../dist/': 'companion-ui/', '../release/THIRD_PARTY_NOTICES.txt': 'THIRD_PARTY_NOTICES.txt' } },
 }, null, 2));
+// These are generated bundle staging trees. Recreate them so removed assets
+// and permissions from an earlier private-umask build cannot leak forward.
+await rm(path.join('target', target, 'release', 'bundle'), { recursive: true, force: true });
 const cli = ['node_modules/@tauri-apps/cli/tauri.js', 'build', '--ci', '--target', target, '--bundles', bundles, '--config', 'src-tauri/tauri.bundle.conf.json'];
 if (args.includes('--signed')) {
   await import('./release-config.mjs');

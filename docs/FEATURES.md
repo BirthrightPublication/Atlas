@@ -15,20 +15,21 @@ validation. The initial build is being validated in a Linux cloud workspace.
 | Discovery | Editable website library, exact-date offer ranking, verified requirements, justified stretch budgets, linked journey costs, provider links | Saved-evidence comparison and immutable extension tests pass; no live travel inventory or authorized scheduled monitoring connected |
 | Maps | Saved location directory and external provider directions | Offline map tiles / live route computation not implemented |
 | Recurrence | Daily/weekly/monthly, interval, until, exceptions and per-occurrence completion | Expansion and local-time tests pass; advanced RRULE components explicitly rejected |
-| Local AI | Optional supervised verified runtime, one job, caps/cancel/idle release, schema/evidence checks | Validation tests pass; no model downloaded, inferred or CPU-benchmarked yet |
+| Local AI | Optional supervised verified runtime, pinned artifact installer, one job, caps/cancel/idle release, schema/evidence checks | Official Qwen metadata/licenses and llama.cpp archive verified; model CDN blocked, so no model inference or CPU benchmark claimed |
 | Companion | Authenticated pairing/revocation, limited services, IndexedDB snapshot/queue, version conflicts, opt-in documents | Host security and real Chromium offline tests pass; trusted private HTTPS and physical iPhone unverified |
-| Desktop | Tauri native IPC/window, OS notifications, system-browser links, managed companion host | Optimized Linux executable built and native window rendered with sandbox intact; packaging checks in progress |
+| Desktop | Tauri native IPC/window, OS notifications, system-browser links, managed companion host | Optimized Linux executable built; native UI saved and reopened a stay with sandbox intact; packaging checks in progress |
 | Releases | Windows NSIS, Linux AppImage/deb and macOS pipeline definitions; exact artifact metadata | Native runner results and Windows/macOS installation not yet verified |
 | Updates | Compiled verification key + HTTPS feed, backup, signature verification, install/restart | Cryptographic verification tests pass; owner signing setup and published feed absent |
 
 ## Validation in this workspace
 
-The current completed run passed 92 core unit tests, four SQLite acceptance
+The completed suite and subsequent email regression run passed 94 core unit tests, four SQLite acceptance
 journeys, six service-boundary tests, seven companion-host tests, and five real
 Chromium browser tests. Empty binary/doc-test targets are not counted. Frontend
 type checking and production bundling passed. Native Linux launch used a
 read-only view of the verified GTK/WebKit SDK, an isolated temporary user-data
-directory and Xvfb; WebKit's sandbox remained enabled. These results do not
+directory and Xvfb; a stay saved through the native UI survived window restart,
+and WebKit's sandbox remained enabled. These results do not
 establish physical iPhone behavior or Windows/macOS installation.
 
 ## Accounting semantics
@@ -52,10 +53,10 @@ and saved listing URLs are not silently scraped.
 
 ## Remaining release prerequisites
 
-The owner must select a supported mailbox setup, authorize it in the native app,
-and supply any account registration settings there. A free Proton account cannot
-use Bridge. Validate private HTTPS, pairing, airplane-mode reads/edits and
-reconnection on an actual iPhone. Model files/runtime need authoritative hashes
-and a measured CPU evaluation before choosing a default. Windows/macOS packages
+Authorize the selected mailbox setup in the native app and supply account
+registration settings there. A free Proton account cannot use Bridge. Validate
+private HTTPS, pairing, airplane-mode reads/edits and reconnection on an actual
+iPhone. Official model/runtime hashes are pinned; model bytes and a measured CPU
+evaluation remain blocked by model-CDN access. Windows/macOS packages
 need native installation/startup checks. Signed updates need protected signing
 keys, release artifacts and an activated feed. No secrets belong in chat or Git.
