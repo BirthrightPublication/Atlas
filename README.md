@@ -63,6 +63,7 @@ credentials use the OS secret store and fail closed if it is unavailable.
 - [Release packaging and signed updates](docs/RELEASE.md)
 - [Application service contract](docs/SERVICE-CONTRACT.md)
 - [Validation and feature status](docs/FEATURES.md)
+- [Tested builds and artifact evidence](docs/VALIDATION.md)
 
 No application license has been selected. Public repository visibility does not
 grant a software license. Third-party components retain their own licenses and

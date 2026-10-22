@@ -97,9 +97,11 @@ metadata. The window and UI display **Birthright: Atlas**; filesystem product
 names omit the colon because Windows paths cannot contain it.
 
 `.github/workflows/build.yml` tests and packages on native Windows, Linux, Apple
-Silicon, and Intel macOS runners. Successful CI artifacts still need native
-installation/startup checks. The local Linux build cannot establish Windows or
-macOS installation, publisher-signing, or real phone support.
+Silicon, and Intel macOS runners. The Windows job also installs the staged NSIS
+artifact, verifies its normal launcher, opens/closes the native app twice and
+checks persisted data. macOS packages still need installation/startup checks.
+See [the recorded validation](VALIDATION.md) for the tested source and artifacts.
+These checks do not establish publisher signing or physical phone support.
 
 Linux automatic updates apply to the AppImage edition. Debian packages are
 updated by installing the next verified `.deb`; the application explains this
