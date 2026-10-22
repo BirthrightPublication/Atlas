@@ -60,7 +60,7 @@ From the repository root:
 npm ci
 npm run build
 cargo test --workspace --locked
-node --test scripts/release.test.mjs
+node --test scripts/release.test.mjs tests/money-input.test.mjs
 npm run desktop
 ```
 

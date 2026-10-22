@@ -81,8 +81,9 @@ export function money(minor: number | undefined, currency = "USD") {
   }
 }
 export function minorFromInput(value: string, currency = "USD") {
+  value = value.trim();
   const digits = currencyDigits(currency);
-  if (!/^-?\d+(\.\d*)?$/.test(value.trim()))
+  if (!/^-?\d+(\.\d*)?$/.test(value))
     throw new Error("Enter a valid monetary amount.");
   const [whole, fraction = ""] = value.split(".");
   if (fraction.length > digits)
