@@ -19,13 +19,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ATLAS_ARTIFACT_ID: ${{ inputs.artifact_id }}
           ATLAS_REPOSITORY: ${{ github.repository }}
+          ATLAS_BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
           python3 - <<'PY'
           import os, subprocess, json, hashlib, zipfile, io, re
           artifact = os.environ['ATLAS_ARTIFACT_ID']
           if not artifact:
               listing = json.loads(subprocess.check_output(['gh', 'api', f"repos/{os.environ['ATLAS_REPOSITORY']}/actions/artifacts?name=atlas-x86_64-pc-windows-msvc&per_page=10"]))
-              artifact = str(next(a['id'] for a in listing['artifacts'] if not a['expired'] and a['workflow_run']['head_branch'] == 'codex/atlas-v0.3-planning'))
+              artifact = str(next(a['id'] for a in listing['artifacts'] if not a['expired'] and a['workflow_run']['head_branch'] == os.environ['ATLAS_BRANCH']))
           print(f'::notice title=Report archive::Inspecting repository artifact {artifact}')
           if not re.fullmatch(r'[0-9]+', artifact):
               raise SystemExit('Artifact ID must be numeric')
@@ -36,7 +37,7 @@ jobs:
               raise SystemExit('Archive checksum mismatch')
           with zipfile.ZipFile(io.BytesIO(archive)) as z:
               for entry in z.infolist():
-                  if entry.filename.endswith(('windows-smoke.json', 'controlled-update-smoke.json')):
+                  if entry.filename.endswith(('windows-installation-smoke.json', 'controlled-update-smoke.json')):
                       if entry.file_size > 65536:
                           raise SystemExit('Unexpected report size')
                       report = json.loads(z.read(entry))
