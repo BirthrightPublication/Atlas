@@ -628,6 +628,30 @@ pub fn preceding_location(
 /// A what-if estimate deliberately leaves records, payments and provider bookings
 /// unchanged. Historical average nightly price is a scenario basis, not an offer.
 pub fn what_if(records: &[Value], _settings: &Value, payload: &Value) -> Result<Value, String> {
+    if let Some(id) = payload["transportId"].as_str() {
+        let original = records
+            .iter()
+            .find(|r| {
+                text(r, "kind") == "transport"
+                    && text(r, "id") == id
+                    && text(r, "status") != "cancelled"
+            })
+            .ok_or("Select an active saved transport record")?;
+        let amount = minor(payload, "totalMinor")?;
+        let c = currency(text(original, "currency"))?;
+        // A separate hypothetical month-of-use projection; never rewrite payments
+        // or conversion history, including on an already paid reservation.
+        let request = json!({"month":payload["month"],"currency":c});
+        let before = crate::money::summary(records, _settings, &request)?;
+        let mut proposed = records.to_vec();
+        let candidate = proposed.iter_mut().find(|r| text(r, "id") == id).unwrap();
+        candidate["totalMinor"] = json!(amount);
+        candidate["status"] = json!("confirmed");
+        let after = crate::money::summary(&proposed, _settings, &request)?;
+        return Ok(
+            json!({"estimateOnly":true,"recordsChanged":false,"paymentsChanged":false,"currency":c,"month":payload["month"],"before":before,"after":after,"scenario":{"recordId":id,"totalMinor":amount,"assumption":"This transport is included at the entered estimate. Payment cash flow and historical currency conversions are not repriced."}}),
+        );
+    }
     let id = text(payload, "stayId");
     if id.is_empty() {
         return Err("Select a stayId to extend".into());

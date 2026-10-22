@@ -115,6 +115,21 @@ export function Calendar({
                   <small>{r.status}</small>
                 </div>
                 <h3>{r.name}</h3>
+                {r.kind === "stay" && (
+                  <small>
+                    {r.checkIn} → {r.checkOut} (exclusive checkout)
+                  </small>
+                )}
+                {r.kind === "transport" && (
+                  <small>
+                    {zonedDay(r.departure, r.departureTimezone)}{" "}
+                    {zonedTime(r.departure, r.departureTimezone)}{" "}
+                    {r.departureTimezone} →{" "}
+                    {zonedDay(r.arrival, r.arrivalTimezone)}{" "}
+                    {zonedTime(r.arrival, r.arrivalTimezone)}{" "}
+                    {r.arrivalTimezone}
+                  </small>
+                )}
                 <p>
                   {r.kind === "stay"
                     ? `${r.address || "Address not added"} · ${prettyDate(r.checkIn)} – ${prettyDate(r.checkOut)}`

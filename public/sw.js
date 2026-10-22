@@ -1,6 +1,6 @@
 /* API responses and documents are never cached implicitly. Phone data is kept
    in explicit IndexedDB stores managed by the companion's storage controls. */
-const CACHE = 'atlas-shell-v2';
+const CACHE = 'atlas-shell-v3';
 const SHELL = ['/companion', '/manifest.webmanifest', '/companion-icon.svg'];
 self.addEventListener('install', event => {
   event.waitUntil((async () => {

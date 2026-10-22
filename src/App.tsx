@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   CalendarDays,
   Compass,
@@ -47,7 +54,21 @@ import { RecordForm, newRecord } from "./RecordForm";
 import { ImportPanel } from "./Imports";
 import { Discover, MapView } from "./Discover";
 import { Budget } from "./Budget";
-import { SettingsPanel } from "./SettingsPanel";
+import { SettingsPanel, SettingsActions } from "./SettingsPanel";
+import { RightPanel, Utility } from "./RightPanel";
+const AssistantPanel = lazy(() =>
+  import("./AssistantPanel").then((m) => ({ default: m.AssistantPanel })),
+);
+const NotificationsPanel = lazy(() =>
+  import("./NotificationsPanel").then((m) => ({
+    default: m.NotificationsPanel,
+  })),
+);
+const UpdatesPanel = lazy(() =>
+  import("./UpdatesPanel").then((m) => ({ default: m.UpdatesPanel })),
+);
+import { GapReview } from "./Planning";
+import { AtlasTarget, Module, validTarget } from "./navigation";
 import { useDialog } from "./useDialog";
 import { APP_VERSION } from "./version";
 import { CompanionApp } from "./companion/CompanionApp";
@@ -62,7 +83,7 @@ function DesktopApp() {
   const today = dayKey(new Date());
   const [records, setRecords] = useState<AtlasRecord[]>([]);
   const [settings, setSettings] = useState<AtlasSettings>({});
-  const [tab, setTab] = useState("Calendar");
+  const [tab, setTab] = useState<Module>("Calendar");
   const workspace = useRef<HTMLDivElement>(null);
   useEffect(() => {
     workspace.current?.scrollTo(0, 0);
@@ -71,6 +92,26 @@ function DesktopApp() {
   const [selectedDate, setSelectedDate] = useState(today);
   const [view, setView] = useState("month");
   const [panel, setPanel] = useState("");
+  const [utility, setUtility] = useState<Utility | null>(null);
+  const [visitedPanels, setVisitedPanels] = useState<Utility[]>([]);
+  const [settingsVisited, setSettingsVisited] = useState(false);
+  const [settingsDirty, setSettingsDirty] = useState(false);
+  const settingsController = useRef<SettingsActions | null>(null);
+  const [pendingTarget, setPendingTarget] = useState<AtlasTarget | null>(null);
+  const [contextRecordId, setContextRecordId] = useState<string | undefined>();
+  const [notificationData, setNotificationData] = useState<any>({
+    items: [],
+    unread: 0,
+  });
+  const [updateStatus, setUpdateStatus] = useState<any>(null);
+  const toggleUtility = (value: Utility) => {
+    setUtility((old) => (old === value ? null : value));
+    setVisitedPanels((old) => (old.includes(value) ? old : [...old, value]));
+  };
+  const openUtility = (value: Utility) => {
+    setUtility(value);
+    setVisitedPanels((old) => (old.includes(value) ? old : [...old, value]));
+  };
   const [settingsCategory, setSettingsCategory] = useState("General");
   const [selected, setSelected] = useState<AtlasRecord | null>(null);
   const [importId, setImportId] = useState<string | undefined>();
@@ -149,7 +190,7 @@ function DesktopApp() {
     const esc = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setPanel("");
-        setSelected(null);
+        setUtility(null);
         setNewMenu(false);
       }
     };
@@ -172,7 +213,10 @@ function DesktopApp() {
       const { invoke } = await import("@tauri-apps/api/core");
       try {
         const result: any = await invoke("update_status");
-        if (!disposed) setUpdatesAvailable(!!result.available);
+        if (!disposed) {
+          setUpdatesAvailable(!!result.available);
+          setUpdateStatus(result);
+        }
       } catch {
         /* updates panel reports detail */
       }
@@ -190,6 +234,95 @@ function DesktopApp() {
       stops.forEach((stop) => stop());
     };
   }, [refresh]);
+  const refreshNotifications = useCallback(async () => {
+    try {
+      setNotificationData(await rpc("notifications.list"));
+    } catch (e) {
+      setError(String(e));
+    }
+  }, []);
+  useEffect(() => {
+    if (!loaded) return;
+    void refreshNotifications();
+    const timer = setInterval(refreshNotifications, 60000);
+    return () => clearInterval(timer);
+  }, [loaded, records, refreshNotifications]);
+  const handleUpdateStatus = useCallback(
+    (status: any) => {
+      setUpdateStatus(status);
+      setUpdatesAvailable(!!status.available);
+      void refreshNotifications();
+    },
+    [refreshNotifications],
+  );
+  function navigate(target: AtlasTarget, bypassGuard = false): boolean {
+    if (!validTarget(target)) {
+      setNotice("This Atlas location is invalid.");
+      return false;
+    }
+    if (
+      settingsDirty &&
+      !bypassGuard &&
+      (target.module !== "Settings" || target.recordId || target.action)
+    ) {
+      setPendingTarget(target);
+      return false;
+    }
+    const record = target.recordId
+      ? records.find((r) => r.id === target.recordId)
+      : undefined;
+    if (target.recordId && !record) {
+      setNotice("This record has been deleted or is no longer available.");
+      return false;
+    }
+    if (target.module) setTab(target.module);
+    if (target.module === "Settings") {
+      setSettingsVisited(true);
+      setSettingsCategory(target.settingsCategory || "General");
+    }
+    if (target.month) setMonth(target.month);
+    const date =
+      target.date ||
+      record?.checkIn ||
+      record?.date ||
+      (record?.departure ? record.departure.slice(0, 10) : undefined);
+    if (date) {
+      setSelectedDate(date);
+      if (!target.month) setMonth(date.slice(0, 7));
+    }
+    if (target.action === "updates") {
+      openUtility("updates");
+      return true;
+    }
+    if (record?.kind === "draft") {
+      const candidate = record.record || record.candidate || {};
+      setImportId(record.id);
+      setSelected({
+        ...newRecord(candidate.kind || "stay", date || selectedDate, settings),
+        ...candidate,
+        id: candidate.id || "",
+      });
+    } else if (record) {
+      setImportId(undefined);
+      setSelected(record);
+      setContextRecordId(record.id);
+    } else if (target.action === "imports") setPanel("imports");
+    if (target.action === "work") {
+      setView("day");
+      requestAnimationFrame(() => {
+        const details = document.querySelector<HTMLDetailsElement>(
+          ".day-context details",
+        );
+        if (details) {
+          details.open = true;
+          details.scrollIntoView({ block: "nearest" });
+        }
+      });
+    }
+    setNewMenu(false);
+    setUtility(null);
+    return true;
+  }
   const drafts = records.filter(
     (r) => r.kind === "draft" && !["accepted", "dismissed"].includes(r.status),
   );
@@ -209,14 +342,19 @@ function DesktopApp() {
     setMonth(dayKey(date).slice(0, 7));
     setSelectedDate(dayKey(date));
   };
-  const create = (kind: string, date = selectedDate) => {
+  const create = (
+    kind: string,
+    date = selectedDate,
+    defaults: Partial<AtlasRecord> = {},
+  ) => {
     setImportId(undefined);
-    setSelected(newRecord(kind, date, settings));
+    setSelected({ ...newRecord(kind, date, settings), ...defaults });
     setPanel("");
     setNewMenu(false);
   };
   const select = (r: AtlasRecord) => {
     setSelected(records.find((x) => x.id === r.id) || r);
+    setContextRecordId(r.id);
     setImportId(undefined);
     setPanel("");
   };
@@ -264,7 +402,7 @@ function DesktopApp() {
           <div className="header-identity">
             <button
               className="header-brand"
-              onClick={() => setTab("Calendar")}
+              onClick={() => navigate({ module: "Calendar" })}
               aria-label="Birthright: Atlas home"
               title="Birthright: Atlas home"
             >
@@ -310,19 +448,20 @@ function DesktopApp() {
               className="icon-button notification-button"
               aria-label="Notifications"
               title="Notifications and reminders"
-              onClick={() => setPanel("notifications")}
+              aria-expanded={utility === "notifications"}
+              aria-controls="utility-panel"
+              onClick={() => toggleUtility("notifications")}
             >
               <Bell size={18} />
-              {reminders.some((r) => r.state === "delivered") && <i />}
+              {notificationData.unread > 0 && <i />}
             </button>
             <button
               className="icon-button"
               aria-label="Application updates"
               title="Application updates"
-              onClick={() => {
-                setSettingsCategory("Application Updates");
-                setPanel("settings");
-              }}
+              aria-expanded={utility === "updates"}
+              aria-controls="utility-panel"
+              onClick={() => toggleUtility("updates")}
             >
               <Download size={18} />
               {updatesAvailable && <span className="update-dot" />}
@@ -331,7 +470,9 @@ function DesktopApp() {
               className="icon-button"
               aria-label="Atlas Assistant"
               title="Atlas Assistant"
-              onClick={() => setPanel("assistant")}
+              aria-expanded={utility === "assistant"}
+              aria-controls="utility-panel"
+              onClick={() => toggleUtility("assistant")}
             >
               <Sparkles size={18} />
             </button>
@@ -359,273 +500,366 @@ function DesktopApp() {
             </button>
           </div>
         )}
-        <div className="workspace-content" ref={workspace}>
-          {(tab === "Calendar" || tab === "Budget") && (
-            <div className="calendar-toolbar">
-              <div className="month-title">
-                <div>
-                  <h1>
-                    {dateOf(`${month}-01`).toLocaleDateString("en", {
-                      month: "long",
-                    })}
-                    <span>{month.slice(0, 4)}</span>
-                  </h1>
-                  <div className="month-navigation">
-                    <button
-                      className="icon-button"
-                      title="Previous month"
-                      aria-label="Previous month"
-                      onClick={() => changeMonth(-1)}
-                    >
-                      <ChevronLeft size={17} />
-                    </button>
-                    <button
-                      className="icon-button"
-                      title="Next month"
-                      aria-label="Next month"
-                      onClick={() => changeMonth(1)}
-                    >
-                      <ChevronRight size={17} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div className="calendar-toolbar-actions">
-                <button
-                  className="secondary import-button"
-                  title="Import a booking or review the import inbox"
-                  onClick={() => setPanel("imports")}
-                >
-                  <ArrowDownToLine size={15} />
-                  Import booking
-                  {drafts.length > 0 && (
-                    <span className="count-badge">{drafts.length}</span>
-                  )}
-                </button>
-                <div className="new-entry">
-                  <button
-                    className="primary"
-                    onClick={() => setNewMenu(!newMenu)}
-                    aria-expanded={newMenu}
-                    aria-controls="entry-menu"
-                  >
-                    <Plus size={17} />
-                    New entry
-                  </button>
-                  {newMenu && (
-                    <div
-                      className="entry-menu"
-                      id="entry-menu"
-                      aria-label="Create a record"
-                    >
-                      {[
-                        ["stay", "Stay", Home],
-                        ["transport", "Transport", Plane],
-                        ["objective", "Objective", Flag],
-                        ["expense", "Expense", Wallet],
-                        ["payment", "Payment", CircleDollarSign],
-                        ["reminder", "Reminder", Bell],
-                        ["workBlock", "Work block", Clock],
-                      ].map(([kind, label, Icon]) => {
-                        const I = Icon as typeof Home;
-                        return (
-                          <button
-                            key={String(kind)}
-                            onClick={() => create(String(kind))}
-                          >
-                            <I size={16} />
-                            {String(label)}
-                          </button>
-                        );
+        <div className={`workspace-layout ${utility ? "utility-open" : ""}`}>
+          <div className="workspace-content" ref={workspace}>
+            {(tab === "Calendar" || tab === "Budget") && (
+              <div className="calendar-toolbar">
+                <div className="month-title">
+                  <div>
+                    <h1>
+                      {dateOf(`${month}-01`).toLocaleDateString("en", {
+                        month: "long",
                       })}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-          {tab === "Calendar" && (
-            <>
-              <div className="calendar-subtoolbar">
-                <div className="segmented view-switch">
-                  {["month", "week", "day", "journey"].map((v) => (
-                    <button
-                      key={v}
-                      className={view === v ? "active" : ""}
-                      aria-pressed={view === v}
-                      onClick={() => setView(v)}
-                    >
-                      {v[0].toUpperCase() + v.slice(1)}
-                    </button>
-                  ))}
-                </div>
-                <span className="spacer" />
-                <button
-                  className="text-button muted export-button"
-                  title="Export calendar"
-                  aria-label="Export calendar"
-                  onClick={exportCalendar}
-                >
-                  <Download size={14} />
-                  Export calendar
-                </button>
-                <button
-                  className="today-button"
-                  onClick={() => {
-                    setMonth(today.slice(0, 7));
-                    setSelectedDate(today);
-                  }}
-                >
-                  Today
-                </button>
-              </div>
-              <div className="calendar-layout">
-                <section className="calendar-main">
-                  <Calendar
-                    records={calendarRecords.length ? calendarRecords : records}
-                    month={month}
-                    selectedDate={selectedDate}
-                    view={view}
-                    onSelect={select}
-                    onDay={(d) => {
-                      setSelectedDate(d);
-                      if (
-                        view !== "month" ||
-                        window.matchMedia("(max-width:600px)").matches
-                      )
-                        setMonth(d.slice(0, 7));
-                    }}
-                    onCreate={create}
-                  />
-                </section>
-              </div>
-              <section
-                className="day-context"
-                aria-label="Selected day information"
-              >
-                <details className="context-section">
-                  <summary>
-                    <Clock size={16} />
-                    <span>Clocks & work</span>
-                    <small>
-                      {work?.isWorkday === false
-                        ? "Office day off"
-                        : `${work?.requiredHours ?? 8}h work · ${work?.minOverlapHours ?? 4}h overlap`}
-                    </small>
-                    <ChevronRight size={14} />
-                  </summary>
-                  <div className="context-details">
-                    <Clocks
-                      localZone={currentZone}
-                      officeZone={officeZone}
-                      settings={settings}
-                    />
-                    <div className="rail-section">
-                      <h3>{prettyDate(selectedDate)} · Work schedule</h3>
-                      <WorkWindow
-                        work={work}
-                        stay={currentStay}
-                        date={selectedDate}
-                      />
+                      <span>{month.slice(0, 4)}</span>
+                    </h1>
+                    <div className="month-navigation">
                       <button
-                        className="text-button"
-                        onClick={() => create("workBlock")}
+                        className="icon-button"
+                        title="Previous month"
+                        aria-label="Previous month"
+                        onClick={() => changeMonth(-1)}
                       >
-                        Protect a work block <Plus size={14} />
+                        <ChevronLeft size={17} />
+                      </button>
+                      <button
+                        className="icon-button"
+                        title="Next month"
+                        aria-label="Next month"
+                        onClick={() => changeMonth(1)}
+                      >
+                        <ChevronRight size={17} />
                       </button>
                     </div>
                   </div>
-                </details>
-                <details className="context-section">
-                  <summary>
-                    <Wallet size={16} />
-                    <span>Daily allowance</span>
-                    <small>
-                      {money(summary?.dailyAllowanceMinor, currency)} / day
-                    </small>
-                    <ChevronRight size={14} />
-                  </summary>
-                  <div className="context-details compact">
-                    <p>
-                      {summary?.remainingDays ?? "—"} remaining eligible days
-                      after committed and recorded spending.
-                    </p>
+                </div>
+                <div className="calendar-toolbar-actions">
+                  <button
+                    className="secondary import-button"
+                    title="Import a booking or review the import inbox"
+                    onClick={() => setPanel("imports")}
+                  >
+                    <ArrowDownToLine size={15} />
+                    Import booking
+                    {drafts.length > 0 && (
+                      <span className="count-badge">{drafts.length}</span>
+                    )}
+                  </button>
+                  <div className="new-entry">
                     <button
-                      className="text-button"
-                      onClick={() => setTab("Budget")}
+                      className="primary"
+                      onClick={() => setNewMenu(!newMenu)}
+                      aria-expanded={newMenu}
+                      aria-controls="entry-menu"
                     >
-                      Open budget <ArrowUpRight size={14} />
+                      <Plus size={17} />
+                      New entry
                     </button>
-                  </div>
-                </details>
-                <details className="context-section">
-                  <summary>
-                    <Home size={16} />
-                    <span>Accommodation</span>
-                    <small>
-                      {currentStay
-                        ? currentStay.name
-                        : records.some((r) => travelNight(r, selectedDate))
-                          ? "Traveling overnight"
-                          : "No confirmed stay"}
-                    </small>
-                    <ChevronRight size={14} />
-                  </summary>
-                  <div className="context-details compact">
-                    <GapNote
-                      records={records}
-                      date={selectedDate}
-                      onCreate={() => create("stay")}
-                    />
-                    {currentStay && (
-                      <button
-                        className="text-button"
-                        onClick={() => select(currentStay)}
+                    {newMenu && (
+                      <div
+                        className="entry-menu"
+                        id="entry-menu"
+                        aria-label="Create a record"
                       >
-                        View {currentStay.name} <ArrowUpRight size={14} />
-                      </button>
+                        {[
+                          ["stay", "Stay", Home],
+                          ["transport", "Transport", Plane],
+                          ["objective", "Objective", Flag],
+                          ["expense", "Expense", Wallet],
+                          ["payment", "Payment", CircleDollarSign],
+                          ["reminder", "Reminder", Bell],
+                          ["workBlock", "Work block", Clock],
+                        ].map(([kind, label, Icon]) => {
+                          const I = Icon as typeof Home;
+                          return (
+                            <button
+                              key={String(kind)}
+                              onClick={() => create(String(kind))}
+                            >
+                              <I size={16} />
+                              {String(label)}
+                            </button>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
-                </details>
-              </section>
-            </>
-          )}
-          {tab === "Discover" && (
-            <Discover
-              records={records}
-              settings={settings}
-              onCreate={create}
-              onSelect={select}
-              onRefresh={refresh}
-              onSettings={() => {
-                setSettingsCategory("Travel Preferences");
-                setPanel("settings");
-              }}
-            />
-          )}
-          {tab === "Map" && (
-            <MapView records={records} onCreate={create} onSelect={select} />
-          )}
-          {tab === "Budget" && (
-            <Budget
-              records={records}
-              summary={summary}
-              month={month}
-              currency={currency}
-              onCreate={create}
-              onSelect={select}
-              onEditBudget={() => {
-                const record =
-                  records.find(
-                    (r) =>
-                      r.kind === "budget" &&
-                      r.month === month &&
-                      r.currency === currency,
-                  ) || newRecord("budget", `${month}-01`, settings);
-                setSelected({ ...record, id: record.id || "", _edit: true });
-              }}
-            />
-          )}
+                </div>
+              </div>
+            )}
+            {tab === "Calendar" && (
+              <>
+                <div className="calendar-subtoolbar">
+                  <div className="segmented view-switch">
+                    {["month", "week", "day", "journey"].map((v) => (
+                      <button
+                        key={v}
+                        className={view === v ? "active" : ""}
+                        aria-pressed={view === v}
+                        onClick={() => setView(v)}
+                      >
+                        {v[0].toUpperCase() + v.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="spacer" />
+                  <button
+                    className="text-button muted export-button"
+                    title="Export calendar"
+                    aria-label="Export calendar"
+                    onClick={exportCalendar}
+                  >
+                    <Download size={14} />
+                    Export calendar
+                  </button>
+                  <button
+                    className="today-button"
+                    onClick={() => {
+                      setMonth(today.slice(0, 7));
+                      setSelectedDate(today);
+                    }}
+                  >
+                    Today
+                  </button>
+                </div>
+                <div className="calendar-layout">
+                  <section className="calendar-main">
+                    <Calendar
+                      records={
+                        calendarRecords.length ? calendarRecords : records
+                      }
+                      month={month}
+                      selectedDate={selectedDate}
+                      view={view}
+                      onSelect={select}
+                      onDay={(d) => {
+                        setSelectedDate(d);
+                        if (
+                          view !== "month" ||
+                          window.matchMedia("(max-width:600px)").matches
+                        )
+                          setMonth(d.slice(0, 7));
+                      }}
+                      onCreate={create}
+                    />
+                  </section>
+                </div>
+                <GapReview
+                  records={records}
+                  month={month}
+                  journey={view === "journey"}
+                  onCreate={create}
+                  onNavigate={navigate}
+                />
+                <section
+                  className="day-context"
+                  aria-label="Selected day information"
+                >
+                  <details className="context-section">
+                    <summary>
+                      <Clock size={16} />
+                      <span>Clocks & work</span>
+                      <small>
+                        {work?.isWorkday === false
+                          ? "Office day off"
+                          : `${work?.requiredHours ?? 8}h work · ${work?.minOverlapHours ?? 4}h overlap`}
+                      </small>
+                      <ChevronRight size={14} />
+                    </summary>
+                    <div className="context-details">
+                      <Clocks
+                        localZone={currentZone}
+                        officeZone={officeZone}
+                        settings={settings}
+                      />
+                      <div className="rail-section">
+                        <h3>{prettyDate(selectedDate)} · Work schedule</h3>
+                        <WorkWindow
+                          work={work}
+                          stay={currentStay}
+                          date={selectedDate}
+                        />
+                        {work?.suggestedBlocks?.map(
+                          (block: any, index: number) => (
+                            <button
+                              className="secondary"
+                              key={index}
+                              onClick={() =>
+                                create("workBlock", selectedDate, {
+                                  name: "Proposed work block",
+                                  start: block.start,
+                                  end: block.end,
+                                  startTime: block.localStart.slice(11, 16),
+                                  endTime: block.localEnd.slice(11, 16),
+                                  timezone:
+                                    currentStay?.timezone || currentZone,
+                                })
+                              }
+                            >
+                              Draft work: {block.localStart.slice(11, 16)}–
+                              {block.localEnd.slice(11, 16)} local
+                            </button>
+                          ),
+                        )}
+                        <button
+                          className="text-button"
+                          onClick={() => create("workBlock")}
+                        >
+                          Protect a work block <Plus size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </details>
+                  <details className="context-section">
+                    <summary>
+                      <Wallet size={16} />
+                      <span>Daily allowance</span>
+                      <small>
+                        {money(summary?.dailyAllowanceMinor, currency)} / day
+                      </small>
+                      <ChevronRight size={14} />
+                    </summary>
+                    <div className="context-details compact">
+                      <p>
+                        {summary?.remainingDays ?? "—"} remaining eligible days
+                        after committed and recorded spending.
+                      </p>
+                      <button
+                        className="text-button"
+                        onClick={() => setTab("Budget")}
+                      >
+                        Open budget <ArrowUpRight size={14} />
+                      </button>
+                    </div>
+                  </details>
+                  <details className="context-section">
+                    <summary>
+                      <Home size={16} />
+                      <span>Accommodation</span>
+                      <small>
+                        {currentStay
+                          ? currentStay.name
+                          : records.some((r) => travelNight(r, selectedDate))
+                            ? "Traveling overnight"
+                            : "No confirmed stay"}
+                      </small>
+                      <ChevronRight size={14} />
+                    </summary>
+                    <div className="context-details compact">
+                      <GapNote
+                        records={records}
+                        date={selectedDate}
+                        onCreate={() => create("stay")}
+                      />
+                      {currentStay && (
+                        <button
+                          className="text-button"
+                          onClick={() => select(currentStay)}
+                        >
+                          View {currentStay.name} <ArrowUpRight size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </details>
+                </section>
+              </>
+            )}
+            {tab === "Discover" && (
+              <Discover
+                records={records}
+                settings={settings}
+                onCreate={create}
+                onSelect={select}
+                onRefresh={refresh}
+                onSettings={() =>
+                  navigate({
+                    module: "Settings",
+                    settingsCategory: "Travel Preferences",
+                  })
+                }
+              />
+            )}
+            {tab === "Map" && (
+              <MapView records={records} onCreate={create} onSelect={select} />
+            )}
+            {tab === "Budget" && (
+              <Budget
+                records={records}
+                summary={summary}
+                month={month}
+                currency={currency}
+                onCreate={create}
+                onSelect={select}
+                onEditBudget={() => {
+                  const record =
+                    records.find(
+                      (r) =>
+                        r.kind === "budget" &&
+                        r.month === month &&
+                        r.currency === currency,
+                    ) || newRecord("budget", `${month}-01`, settings);
+                  setSelected({ ...record, id: record.id || "", _edit: true });
+                }}
+              />
+            )}
+            {settingsVisited && (
+              <div hidden={tab !== "Settings"}>
+                <SettingsPanel
+                  settings={settings}
+                  initialCategory={settingsCategory}
+                  updates={
+                    <button
+                      className="secondary"
+                      onClick={() => openUtility("updates")}
+                    >
+                      Open Updates panel
+                    </button>
+                  }
+                  onNotifications={() => openUtility("notifications")}
+                  onBudget={() => navigate({ module: "Budget" })}
+                  controller={settingsController}
+                  onDirtyChange={setSettingsDirty}
+                  onRefresh={refresh}
+                />
+              </div>
+            )}
+          </div>
+          <RightPanel active={utility} onClose={() => setUtility(null)}>
+            <Suspense fallback={<p>Opening panel…</p>}>
+              {visitedPanels.includes("assistant") && (
+                <div hidden={utility !== "assistant"}>
+                  <AssistantPanel
+                    module={tab}
+                    context={{
+                      date: selectedDate,
+                      month,
+                      recordId: contextRecordId,
+                    }}
+                    records={records}
+                    onNavigate={navigate}
+                    onRefresh={refresh}
+                  />
+                </div>
+              )}
+              {visitedPanels.includes("notifications") && (
+                <div hidden={utility !== "notifications"}>
+                  <NotificationsPanel
+                    data={notificationData}
+                    onRefresh={refreshNotifications}
+                    onNavigate={navigate}
+                    onCreate={() => create("reminder")}
+                  />
+                </div>
+              )}
+              {visitedPanels.includes("updates") && (
+                <div hidden={utility !== "updates"}>
+                  <UpdatesPanel
+                    hasUnsaved={settingsDirty || !!selected}
+                    onStatus={handleUpdateStatus}
+                  />
+                </div>
+              )}
+            </Suspense>
+          </RightPanel>
         </div>
         <nav className="bottom-nav" aria-label="Main navigation">
           <div className="destination-nav">
@@ -636,8 +870,11 @@ function DesktopApp() {
                 className={tab === label ? "active" : ""}
                 title={label}
                 onClick={() => {
-                  setTab(label);
-                  setNewMenu(false);
+                  if (settingsDirty) navigate({ module: label });
+                  else {
+                    setTab(label);
+                    setNewMenu(false);
+                  }
                 }}
               >
                 <Icon size={19} strokeWidth={1.7} />
@@ -646,12 +883,14 @@ function DesktopApp() {
             ))}
           </div>
           <button
-            className="settings-gear"
+            className={`settings-gear ${tab === "Settings" ? "active" : ""}`}
+            aria-current={tab === "Settings" ? "page" : undefined}
             aria-label="Settings"
             title="Settings"
             onClick={() => {
+              setSettingsVisited(true);
               setSettingsCategory("General");
-              setPanel("settings");
+              setTab("Settings");
             }}
           >
             <Settings size={20} strokeWidth={1.7} />
@@ -685,70 +924,46 @@ function DesktopApp() {
           }}
         />
       )}
-      {panel === "settings" && (
-        <SettingsPanel
-          settings={settings}
-          initialCategory={settingsCategory}
-          updates={<UpdatesContent onClose={() => setPanel("")} />}
-          onNotifications={() => setPanel("notifications")}
-          onBudget={() => {
-            setPanel("");
-            setTab("Budget");
-          }}
-          onClose={() => setPanel("")}
-          onRefresh={refresh}
-        />
-      )}
-      {panel === "assistant" && (
-        <Assistant
-          onClose={() => setPanel("")}
-          records={records}
-          onSelect={select}
-          onRefresh={refresh}
-        />
-      )}
-      {panel === "notifications" && (
-        <SimplePanel
-          title="Small things, remembered."
-          eyebrow="NOTIFICATIONS & REMINDERS"
-          onClose={() => setPanel("")}
+      {pendingTarget && (
+        <section
+          className="unsaved-navigation"
+          role="alert"
+          aria-label="Unsaved settings"
         >
-          <button className="primary full" onClick={() => create("reminder")}>
-            <Plus size={16} />
-            Create a reminder
-          </button>
-          {reminders.length === 0 ? (
-            <div className="empty small">
-              <Bell size={28} />
-              <h3>Nothing to remember. Yet.</h3>
-              <p>
-                Set a reminder for checkout, a payment, or a cancellation
-                deadline.
-              </p>
-            </div>
-          ) : (
-            reminders.map((r) => (
-              <button
-                className="reminder-card"
-                key={r.id}
-                onClick={() => select(r)}
-              >
-                <Bell size={17} />
-                <div>
-                  <strong>{r.name}</strong>
-                  <small>
-                    {new Date(r.dueAt).toLocaleString()} · {r.state}
-                  </small>
-                </div>
-                <ChevronRight size={16} />
-              </button>
-            ))
-          )}
-          <p className="field-help">
-            The native scheduler delivers while Atlas runs. Persisted reminders
-            catch up on launch according to your chosen policy.
-          </p>
-        </SimplePanel>
+          <h3>Save your settings before leaving?</h3>
+          <p>Your edits are retained until you choose.</p>
+          <div className="inline-actions">
+            <button
+              className="primary"
+              onClick={async () => {
+                if (await settingsController.current?.save()) {
+                  const target = pendingTarget;
+                  setPendingTarget(null);
+                  navigate(target, true);
+                }
+              }}
+            >
+              Save and continue
+            </button>
+            <button
+              className="secondary"
+              onClick={() => {
+                settingsController.current?.discard();
+                const target = pendingTarget;
+                setPendingTarget(null);
+                navigate(target, true);
+              }}
+            >
+              Discard and continue
+            </button>
+            <button
+              className="text-button"
+              onClick={() => setPendingTarget(null)}
+            >
+              Keep editing
+            </button>
+          </div>
+        </section>
       )}
     </div>
   );
@@ -959,284 +1174,5 @@ function GapNote({
         </button>
       )}
     </div>
-  );
-}
-
-function SimplePanel({
-  title,
-  eyebrow,
-  onClose,
-  children,
-}: {
-  title: string;
-  eyebrow: string;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  const dialog = useDialog(onClose);
-  return (
-    <div
-      className="drawer-backdrop"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <aside
-        className="drawer floating-panel"
-        ref={dialog}
-        tabIndex={-1}
-        role="dialog"
-        aria-modal="true"
-        aria-label={eyebrow}
-      >
-        <div className="drawer-top">
-          <span className="eyebrow">{eyebrow}</span>
-          <button
-            className="icon-button"
-            aria-label="Close panel"
-            onClick={onClose}
-          >
-            <X size={20} />
-          </button>
-        </div>
-        <div className="drawer-heading">
-          <h2>{title}</h2>
-        </div>
-        <div className="detail-content">{children}</div>
-      </aside>
-    </div>
-  );
-}
-
-function Assistant({
-  onClose,
-  records,
-  onSelect,
-  onRefresh,
-}: {
-  onClose: () => void;
-  records: AtlasRecord[];
-  onSelect: (r: AtlasRecord) => void;
-  onRefresh: () => Promise<void>;
-}) {
-  const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<
-    {
-      role: string;
-      text: string;
-      records?: AtlasRecord[];
-      undo?: { method: string; payload: any };
-    }[]
-  >([]);
-  const [busy, setBusy] = useState(false);
-  async function ask(text: string) {
-    setInput("");
-    setMessages((m) => [...m, { role: "you", text }]);
-    setBusy(true);
-    try {
-      const result = await rpc("assistant.ask", { text });
-      setMessages((m) => [
-        ...m,
-        {
-          role: "atlas",
-          text: result.message,
-          records: result.records,
-          undo: result.undo,
-        },
-      ]);
-      if (result.undo) await onRefresh();
-    } catch (e) {
-      setMessages((m) => [...m, { role: "atlas", text: String(e) }]);
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <SimplePanel
-      title="A little perspective."
-      eyebrow="ATLAS ASSISTANT"
-      onClose={onClose}
-    >
-      <div className="assistant-intro">
-        <Sparkles size={25} />
-        <p>
-          Ask about your saved plans and exact budget. Answers use your local
-          records; live availability requires a connected source. These queries
-          use the built-in planner. Optional local inference is configured in
-          Settings → Email & Integrations.
-        </p>
-      </div>
-      {messages.length === 0 && (
-        <div className="assistant-suggestions">
-          {[
-            "What is my daily cost this month?",
-            "Which stays have a verified workspace?",
-            "Show my upcoming reminders",
-            "What is on my calendar?",
-          ].map((q) => (
-            <button key={q} onClick={() => ask(q)}>
-              {q}
-              <ArrowUpRight size={13} />
-            </button>
-          ))}
-        </div>
-      )}
-      <div className="assistant-messages">
-        {messages.map((m, i) => (
-          <article key={i} className={m.role}>
-            <span>{m.role === "you" ? "YOU" : "ATLAS"}</span>
-            <p>{m.text}</p>
-            {m.records?.map((r) => (
-              <button
-                className="text-button"
-                key={r.id}
-                onClick={() =>
-                  onSelect(records.find((x) => x.id === r.id) || r)
-                }
-              >
-                {r.name}
-                <ArrowRight size={13} />
-              </button>
-            ))}
-            {m.undo && (
-              <button
-                className="secondary"
-                onClick={async () => {
-                  try {
-                    await rpc(m.undo!.method, m.undo!.payload);
-                    await onRefresh();
-                    setMessages((previous) =>
-                      previous.map((message, index) =>
-                        index === i
-                          ? {
-                              ...message,
-                              text:
-                                message.text + "\nThis reminder was undone.",
-                              records: [],
-                              undo: undefined,
-                            }
-                          : message,
-                      ),
-                    );
-                  } catch (e) {
-                    setMessages((previous) => [
-                      ...previous,
-                      { role: "atlas", text: String(e) },
-                    ]);
-                  }
-                }}
-              >
-                Undo reminder
-              </button>
-            )}
-          </article>
-        ))}
-        {busy && <p className="muted">Looking at your records…</p>}
-      </div>
-      <form
-        className="assistant-input"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (input.trim()) void ask(input.trim());
-        }}
-      >
-        <input
-          aria-label="Ask Atlas"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask, or Remind me: name at 2026-12-01T09:00:00Z"
-          disabled={busy}
-        />
-        <button
-          className="icon-button"
-          aria-label="Send question"
-          disabled={busy || !input.trim()}
-        >
-          <Send size={17} />
-        </button>
-      </form>
-    </SimplePanel>
-  );
-}
-
-function UpdatesContent({ onClose }: { onClose: () => void }) {
-  const [status, setStatus] = useState<any>(null);
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  async function check() {
-    if (!isDesktop()) {
-      setStatus({
-        configured: false,
-        reason:
-          "Update checks are available in the installed desktop app. Web clients receive the host’s current version.",
-      });
-      return;
-    }
-    setBusy(true);
-    try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      setStatus(await invoke("update_status"));
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-  useEffect(() => {
-    void check();
-  }, []);
-  return (
-    <section aria-label="Update status">
-      <div className="update-version">
-        <span className="brand-symbol">A</span>
-        <div>
-          <strong>Birthright: Atlas</strong>
-          <span>Version {status?.currentVersion || APP_VERSION}</span>
-        </div>
-      </div>
-      {error && <div className="error-banner">{error}</div>}
-      {status?.available ? (
-        <>
-          <h3>Version {status.version} is available.</h3>
-          <p className="preserve-lines">{status.notes}</p>
-          <p className="field-help">
-            Save any open edits before updating. Atlas backs up saved data,
-            verifies the update signature, installs, and reopens.
-          </p>
-          <button
-            className="primary"
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true);
-              try {
-                const { invoke } = await import("@tauri-apps/api/core");
-                await invoke("update_install");
-              } catch (e) {
-                setError(String(e));
-                setBusy(false);
-              }
-            }}
-          >
-            <Download size={15} />
-            {busy ? "Installing…" : "Update now"}
-          </button>
-        </>
-      ) : (
-        <p className="info-note">
-          {busy
-            ? "Checking for updates…"
-            : status?.reason || "No update available."}
-        </p>
-      )}
-      <div className="inline-actions">
-        <button className="secondary" disabled={busy} onClick={check}>
-          <RefreshCw size={14} />
-          Check again
-        </button>
-        <button className="text-button" onClick={onClose}>
-          Later
-        </button>
-      </div>
-    </section>
   );
 }

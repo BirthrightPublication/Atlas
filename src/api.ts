@@ -21,12 +21,10 @@ export async function rpc<T = any>(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ method, payload }),
   });
-  const body = await response
-    .json()
-    .catch(() => ({
-      error:
-        "The Atlas service is not available. Start the local host and try again.",
-    }));
+  const body = await response.json().catch(() => ({
+    error:
+      "The Atlas service is not available. Start the local host and try again.",
+  }));
   if (!response.ok || body.error)
     throw new Error(body.error || `Request failed (${response.status})`);
   return body as T;
@@ -155,6 +153,6 @@ export function travelNight(record: AtlasRecord, day: string) {
   )
     return false;
   const start = zonedDay(record.departure, record.departureTimezone);
-  const end = zonedDay(record.arrival, record.arrivalTimezone);
+  const end = zonedDay(record.arrival, record.departureTimezone);
   return day === start || (day > start && day < end);
 }

@@ -3,54 +3,48 @@
 This document distinguishes source implementation from runtime and release
 validation. Checks used the Linux cloud workspace and native CI runners.
 
-Version 0.2.0 replaces the desktop sidebar and calendar information rail with a
-bottom dock and expandable contextual summaries. A shared neutral theme covers
-the desktop, integrations and companion. Settings uses a keyboard-accessible
-modal with ten categories. Existing domain services and schema 3 are unchanged.
-See [v0.2 validation](VALIDATION-v0.2.md) for current checks; the original
-[v0.1 report](VALIDATION.md) remains a historical record.
+Version 0.3.0 preserves the approved neutral theme and bottom dock while making
+Settings a full page and adding a shared nonmodal utility panel. Assistant chats
+and actionable notification state persist in schema 4. Numbers use local Times
+New Roman, falling back to Liberation Serif/Times when it is unavailable.
+See [v0.3 validation](VALIDATION-v0.3.md) for current evidence; the
+[v0.2](VALIDATION-v0.2.md) and [v0.1](VALIDATION.md) reports remain historical.
 
-| Area | Implemented behavior | Validation / limitation |
-| --- | --- | --- |
-| Persistent records | SQLite, stable IDs, versions, relationships, history, local files | Restart, conflict, migration, document backup/restore tests pass |
-| Calendar | Stay bands, objectives, compact transport, month/week/day/journey, context creation defaults | Chromium acceptance passes at desktop and phone widths |
-| Money | Exact night allocations, original currency, cash flow, deposits/refunds, allowance, period averages | Cross-month prepaid stay, currencies, refunds and allowance tests pass |
-| Work | IANA timezone/DST, employer days, overlap, exceptions, breaks, recorded conflicts | Timezone/DST and interval tests pass; connectivity/venue hours remain owner-supplied evidence |
-| Imports | Text, EML, ICS, text-bearing PDF, evidence, review and revision identity | Real SQLite acceptance and parser tests pass; scanned PDFs need external OCR |
-| Reminders | Persistent due instants, snooze/dismiss, catch-up | Restart/delivery tests pass; delivery needs running host; no closed-iPhone push claim |
-| Email | Read-only Proton Bridge/IMAP, Gmail and Outlook adapters, cursors, reconnect and OS-protected secrets | Protocol/fixture tests; no live mailbox or native keychain authorization yet. Proton Bridge needs a paid plan |
-| Discovery | Editable website library, exact-date offer ranking, verified requirements, justified stretch budgets, linked journey costs, provider links | Saved-evidence comparison and immutable extension tests pass; no live travel inventory or authorized scheduled monitoring connected |
-| Maps | Saved location directory and external provider directions | Offline map tiles / live route computation not implemented |
-| Recurrence | Daily/weekly/monthly, interval, until, exceptions and per-occurrence completion | Expansion and local-time tests pass; advanced RRULE components explicitly rejected |
-| Local AI | Optional supervised verified runtime, pinned artifact installer, one job, caps/cancel/idle release, schema/evidence checks | Official Qwen metadata/licenses and llama.cpp archive verified; model CDN blocked, so no model inference or CPU benchmark claimed |
-| Companion | Authenticated pairing/revocation, limited services, IndexedDB snapshot/queue, version conflicts, opt-in documents | Host security and real Chromium offline tests pass; trusted private HTTPS and physical iPhone unverified |
-| Desktop | Tauri native IPC/window, OS notifications, system-browser links, managed companion host | v0.2 Linux AppImage/deb built; native AppImage retained v0.1 records, saved/reopened an objective and closed cleanly with sandbox intact |
-| Releases | Windows NSIS, Linux AppImage/deb and macOS build pipelines; exact artifact metadata | Current platform results and installer digests are recorded in the v0.2 validation report; macOS installation unverified |
-| Updates | Compiled verification key + HTTPS feed, backup, signature verification, install/restart | Cryptographic verification tests pass; owner signing setup and published feed absent |
+| Area                        | Implemented behavior                                                                                                                       | Validation / limitation                                                                                                                  |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Persistent records          | SQLite, stable IDs, versions, relationships, history, local files                                                                          | Restart, conflict, migration, document backup/restore tests pass                                                                         |
+| Calendar                    | Stay bands, objectives, compact transport, month/week/day/journey, context creation defaults                                               | Chromium acceptance passes at desktop and phone widths                                                                                   |
+| Money                       | Exact night allocations, original currency, cash flow, deposits/refunds, allowance, period averages                                        | Cross-month prepaid stay, currencies, refunds and allowance tests pass                                                                   |
+| Work                        | IANA timezone/DST, employer days, overlap, exceptions, breaks, recorded conflicts                                                          | Timezone/DST and interval tests pass; connectivity/venue hours remain owner-supplied evidence                                            |
+| Imports                     | Text, EML, ICS, text-bearing PDF, evidence, review and revision identity                                                                   | Real SQLite acceptance and parser tests pass; scanned PDFs need external OCR                                                             |
+| Reminders                   | Persistent due instants, snooze/dismiss, catch-up                                                                                          | Restart/delivery tests pass; delivery needs running host; no closed-iPhone push claim                                                    |
+| Email                       | Read-only Proton Bridge/IMAP, Gmail and Outlook adapters, cursors, reconnect and OS-protected secrets                                      | Protocol/fixture tests; no live mailbox or native keychain authorization yet. Proton Bridge needs a paid plan                            |
+| Discovery                   | Editable website library, exact-date offer ranking, verified requirements, justified stretch budgets, linked journey costs, provider links | Saved-evidence comparison and immutable extension tests pass; no live travel inventory or authorized scheduled monitoring connected      |
+| Maps                        | Saved location directory and external provider directions                                                                                  | Offline map tiles / live route computation not implemented                                                                               |
+| Recurrence                  | Daily/weekly/monthly, interval, until, exceptions and per-occurrence completion                                                            | Expansion and local-time tests pass; advanced RRULE components explicitly rejected                                                       |
+| Local AI                    | Optional supervised verified runtime, pinned artifact installer, one job, caps/cancel/idle release, schema/evidence checks                 | Official Qwen metadata/licenses and llama.cpp archive verified; model CDN blocked, so no model inference or CPU benchmark claimed        |
+| Companion                   | Authenticated pairing/revocation, limited services, IndexedDB snapshot/queue, version conflicts, opt-in documents                          | Host security and real Chromium offline tests pass; trusted private HTTPS and physical iPhone unverified                                 |
+| Desktop                     | Tauri native IPC/window, OS notifications, system-browser links, managed companion host                                                    | v0.2 Linux AppImage/deb built; native AppImage retained v0.1 records, saved/reopened an objective and closed cleanly with sandbox intact |
+| Releases                    | Windows NSIS, Linux AppImage/deb and macOS build pipelines; exact artifact metadata                                                        | Current platform results and installer digests are recorded in the v0.2 validation report; macOS installation unverified                 |
+| Updates                     | Compiled key + HTTPS feed, real progress, backup, signature/version/target verification, install/restart                                   | See v0.3 controlled native installation evidence; owner production signing/feed absent                                                   |
+| Assistant and notifications | Local chat sessions, contextual deterministic answers, safe navigation, durable read/dismiss state                                         | Real service/restart and browser checks; optional model inference remains separately unverified                                          |
+| Travel planning             | Night gaps, tentative drafts, date-line duration, workspace evidence, alternate hours/commute, immutable scenarios                         | Real core service checks; no live route or venue information                                                                             |
 
-## Validation in this workspace
+## Version 0.3 additions and validation
 
-The final service run passed 94 core unit tests, four SQLite acceptance
-journeys, six service-boundary tests, seven companion-host tests, and eleven real
-Chromium browser journeys. Empty binary/doc-test targets are not counted. Frontend
-type checking and production bundling passed. Native Linux launch used a
-read-only view of the verified GTK/WebKit SDK, an isolated temporary user-data
-directory and Xvfb; an objective saved through the native UI survived window
-restart, all six original v0.1 records remained identical, and WebKit's sandbox
-remained enabled. The separate service upgrade check also preserved IDs,
-versions, history, preferences, presets, documents, schema and exact cross-month
-accounting. These results do not
-establish physical iPhone behavior, macOS installation or installation on the
-owner's computer.
+The existing services remain in place. New Rust services persist chats and
+notifications, evaluate accommodation gaps and workspace evidence, preview
+travel conflicts and estimate transport scenarios without saving commitments.
+Settings handles dirty navigation explicitly. Utility panels retain session and
+composer state across module changes; chat/notification histories are paginated.
+Release history comes only from published GitHub releases, with a local cache.
+The installer remains authorized exclusively by the compiled key and HTTPS
+Tauri update feed. Actual transfer bytes and verification phases drive progress.
 
-Windows v0.2 CI also passed an actual manual NSIS upgrade from the verified
-v0.1 artifact, normal launcher/resource checks, two native launches and clean
-closes, restart persistence, and the exact populated-profile comparison through
-the packaged service. No developer server was used for native installation
-checks.
-
-See [validation evidence and artifact digests](VALIDATION-v0.2.md) for the tested
-source commit, platform checks and remaining external dependencies.
+The current test and platform results are tracked in
+[the v0.3 report](VALIDATION-v0.3.md). A defined workflow is not proof of an
+installed update. Disposable update-test keys do not establish production
+signing. No live prices, availability, routes or workspace evidence are invented.
 
 ## Accounting semantics
 

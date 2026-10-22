@@ -11,13 +11,13 @@ import path from "node:path";
 
 const [mode, executable, dataDir, snapshotFile] = process.argv.slice(2);
 if (
-  !["seed", "verify"].includes(mode) ||
+  !["seed", "capture", "verify"].includes(mode) ||
   !executable ||
   !dataDir ||
   !snapshotFile
 )
   throw new Error(
-    "Usage: node scripts/check-upgrade.mjs seed|verify HOST ISOLATED_DATA_DIR SNAPSHOT_JSON",
+    "Usage: node scripts/check-upgrade.mjs seed|capture|verify HOST ISOLATED_DATA_DIR SNAPSHOT_JSON",
   );
 const socket = createServer();
 socket.listen(0, "127.0.0.1");
@@ -137,6 +137,16 @@ try {
       ).toString("base64"),
     });
   }
+  if (mode === "capture") {
+    const conversation = await rpc("chat.create");
+    await rpc("chat.send", {
+      id: conversation.id,
+      requestId: "synthetic-upgrade-chat",
+      text: "What is my daily cost?",
+      context: { date: "2026-12-14", month: "2026-12", module: "Budget" },
+    });
+    await rpc("notifications.list");
+  }
   const snapshot = await rpc("snapshot");
   const histories = {};
   for (const record of snapshot.records)
@@ -185,14 +195,34 @@ try {
       november.cashFlowMinor,
     ],
   };
-  if (mode === "seed")
+  const baseline =
+    mode === "verify" ? JSON.parse(await readFile(snapshotFile, "utf8")) : null;
+  if (mode === "capture" || baseline?.panels) {
+    const chats = await rpc("chat.list");
+    result.panels = {
+      chats: await Promise.all(
+        chats.map((chat) => rpc("chat.get", { id: chat.id })),
+      ),
+      notifications: await rpc("notifications.list"),
+    };
+  }
+  if (mode !== "verify")
     await writeFile(snapshotFile, JSON.stringify(result, null, 2));
-  else
+  else {
+    if (baseline.schema === 3 && schema === 4) {
+      const backups = await readdir(path.join(dataDir, "backups"));
+      assert.ok(
+        backups.some((name) => name.startsWith("pre-migration-v3-")),
+        "Schema upgrade requires a retained pre-migration backup",
+      );
+      baseline.schema = 4;
+    }
     assert.deepEqual(
       result,
-      JSON.parse(await readFile(snapshotFile, "utf8")),
-      "Manual upgrade must retain records, IDs, versions, history, settings, documents, schema and exact accounting",
+      baseline,
+      "Upgrade must retain records, IDs, versions, history, settings, documents, conversations, notifications and exact accounting; only the backed-up supported schema migration is allowed",
     );
+  }
   console.log(
     `Upgrade ${mode} passed: ${snapshot.records.length} records, ${Object.keys(documents).length} documents, schema ${schema}, exact cross-month accounting and SQLite integrity.`,
   );

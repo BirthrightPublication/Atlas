@@ -37,7 +37,8 @@ body {
 }
 .header-brand {
   font:
-    24px/1.2 Georgia,
+    24px/1.2 "Atlas Numerals",
+    Georgia,
     "Times New Roman",
     serif;
   letter-spacing: -0.5px;
@@ -544,7 +545,8 @@ body {
 }
 .theme-preview > span {
   font:
-    22px Georgia,
+    22px "Atlas Numerals",
+    Georgia,
     serif;
   display: block;
   margin-bottom: 20px;
@@ -571,7 +573,8 @@ body {
 }
 .update-version .brand-symbol {
   font:
-    42px Georgia,
+    42px "Atlas Numerals",
+    Georgia,
     serif;
   color: var(--accent);
 }

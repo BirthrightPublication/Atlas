@@ -77,3 +77,24 @@ signs a synthetic artifact with the installed Tauri CLI, and checks rejection of
 changed bytes, another key, a changed signed comment, and a mismatched version.
 This verifies release-checking code; it is not evidence of an owner-signed build
 or an installed upgrade on another OS.
+
+## Version 0.3 controlled update validation
+
+The Windows packaging job first validates the ordinary preview installer and a
+populated v0.2→v0.3 NSIS upgrade. It then builds two separate disposable test
+installers with the `update-smoke` feature, a generated update key and a local
+HTTPS certificate authority. The feature is absent from ordinary packages.
+Tests verify older-version handling, wrong-platform rejection, invalid signatures,
+interrupted downloads, a valid signed NSIS install, automatic native restart into
+`0.3.1-update-test.1`, and retained records, history, documents, chats and
+notifications. TLS validation remains enabled with that explicit test trust root.
+The test app refuses a non-runner-temporary profile. Private test keys stay under
+RUNNER_TEMP and are removed afterward. Only the ordinary preview installer is
+staged for delivery; test versions never enter the public release feed.
+
+See the validation report for executed results and artifact digests. The v0.2
+preview has no trusted production key, so its upgrade is a verified manual
+installer transition. A production-key-bearing v0.3 build must be installed
+manually once before subsequent owner-signed releases can use **Update Now**.
+Complete the Signing setup above and verify the first published HTTPS manifest;
+no preview or disposable test establishes that production has been activated.
