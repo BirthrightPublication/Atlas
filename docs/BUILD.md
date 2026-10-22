@@ -100,3 +100,9 @@ names omit the colon because Windows paths cannot contain it.
 Silicon, and Intel macOS runners. Successful CI artifacts still need native
 installation/startup checks. The local Linux build cannot establish Windows or
 macOS installation, publisher-signing, or real phone support.
+
+Linux automatic updates apply to the AppImage edition. Debian packages are
+updated by installing the next verified `.deb`; the application explains this
+instead of offering an unsupported automatic installation. AppImage still
+requires the host's normal desktop graphics libraries (Mesa/OpenGL); the cloud
+smoke uses `source scripts/cloud-env.sh` to expose its installed graphics SDK.

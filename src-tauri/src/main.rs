@@ -84,6 +84,12 @@ async fn update_status(
     state: State<'_, UpdateState>,
 ) -> Result<Value, String> {
     let current = app.package_info().version.to_string();
+    if cfg!(target_os = "linux") && std::env::var_os("APPIMAGE").is_none() {
+        return Ok(
+            json!({"configured":false,"available":false,"currentVersion":current,
+            "reason":"Automatic Linux updates require the AppImage edition. Install a verified Debian package manually."}),
+        );
+    }
     let (Some(key), Some(endpoint)) = (
         option_env!("ATLAS_UPDATE_PUBLIC_KEY"),
         option_env!("ATLAS_UPDATE_ENDPOINT"),
@@ -123,6 +129,12 @@ async fn update_install(
     atlas: State<'_, AtlasState>,
     updates: State<'_, UpdateState>,
 ) -> Result<(), String> {
+    if cfg!(target_os = "linux") && std::env::var_os("APPIMAGE").is_none() {
+        return Err(
+            "Install a verified Debian package manually; automatic Linux updates require AppImage"
+                .into(),
+        );
+    }
     let update = updates
         .0
         .lock()
