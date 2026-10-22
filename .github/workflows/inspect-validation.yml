@@ -35,6 +35,18 @@ jobs:
           archive = subprocess.check_output(['gh', 'api', endpoint + '/zip'])
           if 'sha256:' + hashlib.sha256(archive).hexdigest() != metadata['digest']:
               raise SystemExit('Archive checksum mismatch')
+          jobs = json.loads(subprocess.check_output(['gh', 'api', f"repos/{os.environ['ATLAS_REPOSITORY']}/actions/runs/{metadata['workflow_run']['id']}/jobs"]))
+          job = next(j for j in jobs['jobs'] if 'windows' in j['name'].lower())
+          logs = subprocess.check_output(['gh', 'api', f"repos/{os.environ['ATLAS_REPOSITORY']}/actions/jobs/{job['id']}/logs"]).decode('utf8', errors='replace')
+          lines = re.sub(r'\x1b\[[0-9;]*m', '', logs).splitlines()
+          selected = set()
+          for i, line in enumerate(lines):
+              if re.search(r'error|exception|lock file|failed', line, re.I):
+                  selected.update(range(max(0,i-2), min(len(lines),i+8)))
+          diagnostic = '\n'.join(lines[i] for i in sorted(selected))[-14000:]
+          diagnostic = re.sub(r'[A-Za-z0-9+/=]{80,}', '[long token redacted]', diagnostic)
+          diagnostic = diagnostic.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print(f'::notice title=Native failure diagnostics::{diagnostic}')
           with zipfile.ZipFile(io.BytesIO(archive)) as z:
               for entry in z.infolist():
                   if entry.filename.endswith(('windows-installation-smoke.json', 'controlled-update-smoke.json')):
