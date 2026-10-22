@@ -97,7 +97,7 @@ test.describe('paired phone companion on localhost secure context', () => {
     await expect.poll(async () => (await rpc('records.list', { kind: 'expense' })).filter((record: Record<string, unknown>) => record.name === 'Synthetic offline groceries').length).toBe(1)
     const expense = (await rpc('records.list', { kind: 'expense' })).find((record: Record<string, unknown>) => record.name === 'Synthetic offline groceries')
     expect(expense.amountMinor).toBe(1234)
-    await page.screenshot({ path: 'test-results/companion-budget-mobile.png', fullPage: true })
+    await page.screenshot({ path: 'test-results/companion-budget-mobile.png' })
   })
 
   test('preserves a queued objective conflict for explicit owner resolution', async ({ page, context }) => {

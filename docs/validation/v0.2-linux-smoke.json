@@ -1,0 +1,18 @@
+{
+  "version": "0.2.0",
+  "source": "7c1b3d3a8a258e5cfceb0ae71dbb0f123d418709",
+  "package": "Birthright-Atlas_0.2.0_linux_x86_64.AppImage",
+  "nativeWindowLaunches": 2,
+  "cleanWindowCloses": 2,
+  "exitCodes": [
+    0,
+    0
+  ],
+  "originalRecordsUnchanged": 6,
+  "createdViaNativeUI": "Synthetic native v0.2 objective",
+  "recordPersistedAfterRestart": true,
+  "integrity": "ok",
+  "schema": 3,
+  "webkitSandbox": "enabled",
+  "environment": "Debian 13, Xvfb, read-only GTK/WebKit SDK namespace"
+}

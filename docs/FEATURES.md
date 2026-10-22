@@ -24,25 +24,32 @@ See [v0.2 validation](VALIDATION-v0.2.md) for current checks; the original
 | Recurrence | Daily/weekly/monthly, interval, until, exceptions and per-occurrence completion | Expansion and local-time tests pass; advanced RRULE components explicitly rejected |
 | Local AI | Optional supervised verified runtime, pinned artifact installer, one job, caps/cancel/idle release, schema/evidence checks | Official Qwen metadata/licenses and llama.cpp archive verified; model CDN blocked, so no model inference or CPU benchmark claimed |
 | Companion | Authenticated pairing/revocation, limited services, IndexedDB snapshot/queue, version conflicts, opt-in documents | Host security and real Chromium offline tests pass; trusted private HTTPS and physical iPhone unverified |
-| Desktop | Tauri native IPC/window, OS notifications, system-browser links, managed companion host | Linux AppImage/deb built; actual AppImage saved/reopened a stay and closed cleanly with sandbox intact |
-| Releases | Windows NSIS, Linux AppImage/deb and macOS build pipelines; exact artifact metadata | Tests and packaging pass on all four native targets; Windows installation/restart passes; macOS installation unverified |
+| Desktop | Tauri native IPC/window, OS notifications, system-browser links, managed companion host | v0.2 Linux AppImage/deb built; native AppImage retained v0.1 records, saved/reopened an objective and closed cleanly with sandbox intact |
+| Releases | Windows NSIS, Linux AppImage/deb and macOS build pipelines; exact artifact metadata | Current platform results and installer digests are recorded in the v0.2 validation report; macOS installation unverified |
 | Updates | Compiled verification key + HTTPS feed, backup, signature verification, install/restart | Cryptographic verification tests pass; owner signing setup and published feed absent |
 
 ## Validation in this workspace
 
 The final service run passed 94 core unit tests, four SQLite acceptance
-journeys, six service-boundary tests, seven companion-host tests, and five real
-Chromium browser tests. Empty binary/doc-test targets are not counted. Frontend
+journeys, six service-boundary tests, seven companion-host tests, and eleven real
+Chromium browser journeys. Empty binary/doc-test targets are not counted. Frontend
 type checking and production bundling passed. Native Linux launch used a
 read-only view of the verified GTK/WebKit SDK, an isolated temporary user-data
-directory and Xvfb; a stay saved through the native UI survived window restart,
-and WebKit's sandbox remained enabled. Windows CI also installed its NSIS
-artifact, checked the normal launcher, opened/closed two native windows and
-verified SQLite integrity and restart persistence. These results do not
+directory and Xvfb; an objective saved through the native UI survived window
+restart, all six original v0.1 records remained identical, and WebKit's sandbox
+remained enabled. The separate service upgrade check also preserved IDs,
+versions, history, preferences, presets, documents, schema and exact cross-month
+accounting. These results do not
 establish physical iPhone behavior, macOS installation or installation on the
 owner's computer.
 
-See [validation evidence and artifact digests](VALIDATION.md) for the tested
+Windows v0.2 CI also passed an actual manual NSIS upgrade from the verified
+v0.1 artifact, normal launcher/resource checks, two native launches and clean
+closes, restart persistence, and the exact populated-profile comparison through
+the packaged service. No developer server was used for native installation
+checks.
+
+See [validation evidence and artifact digests](VALIDATION-v0.2.md) for the tested
 source commit, platform checks and remaining external dependencies.
 
 ## Accounting semantics
