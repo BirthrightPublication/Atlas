@@ -1,0 +1,40 @@
+name: Inspect native validation report
+on:
+  workflow_dispatch:
+    inputs:
+      artifact_id:
+        description: Repository artifact containing synthetic native smoke reports
+        required: true
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read checksummed report archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ATLAS_ARTIFACT_ID: ${{ inputs.artifact_id }}
+          ATLAS_REPOSITORY: ${{ github.repository }}
+        run: |
+          python3 - <<'PY'
+          import os, subprocess, json, hashlib, zipfile, io, re
+          artifact = os.environ['ATLAS_ARTIFACT_ID']
+          if not re.fullmatch(r'[0-9]+', artifact):
+              raise SystemExit('Artifact ID must be numeric')
+          endpoint = f"repos/{os.environ['ATLAS_REPOSITORY']}/actions/artifacts/{artifact}"
+          metadata = json.loads(subprocess.check_output(['gh', 'api', endpoint]))
+          archive = subprocess.check_output(['gh', 'api', endpoint + '/zip'])
+          if 'sha256:' + hashlib.sha256(archive).hexdigest() != metadata['digest']:
+              raise SystemExit('Archive checksum mismatch')
+          with zipfile.ZipFile(io.BytesIO(archive)) as z:
+              for entry in z.infolist():
+                  if entry.filename.endswith(('windows-smoke.json', 'controlled-update-smoke.json')):
+                      if entry.file_size > 65536:
+                          raise SystemExit('Unexpected report size')
+                      report = json.loads(z.read(entry))
+                      message = json.dumps(report, separators=(',', ':'))
+                      message = message.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+                      print(f'::notice title={entry.filename}::{message}')
+          PY
