@@ -43,7 +43,13 @@ jobs:
               raise SystemExit('Archive checksum mismatch')
           jobs = json.loads(subprocess.check_output(['gh', 'api', f"repos/{os.environ['ATLAS_REPOSITORY']}/actions/runs/{metadata['workflow_run']['id']}/jobs"]))
           job = next(j for j in jobs['jobs'] if 'windows' in j['name'].lower())
-          logs = subprocess.check_output(['gh', 'api', f"repos/{os.environ['ATLAS_REPOSITORY']}/actions/jobs/{job['id']}/logs"]).decode('utf8', errors='replace')
+          result = subprocess.run(['gh', 'api', f"repos/{os.environ['ATLAS_REPOSITORY']}/actions/runs/{metadata['workflow_run']['id']}/logs"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+          if result.returncode == 0:
+              with zipfile.ZipFile(io.BytesIO(result.stdout)) as logs_zip:
+                  logs = '\n'.join(logs_zip.read(n).decode('utf8', errors='replace') for n in logs_zip.namelist() if 'windows' in n.lower())
+          else:
+              logs = result.stderr.decode('utf8', errors='replace')
+          logs = re.sub(r'https?://[^\s]+', '[URL redacted]', logs)
           lines = re.sub(r'\x1b\[[0-9;]*m', '', logs).splitlines()
           selected = set()
           for i, line in enumerate(lines):

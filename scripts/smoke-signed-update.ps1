@@ -23,7 +23,7 @@ $savedEnvironment=@{}
 foreach($name in $variables){$savedEnvironment[$name]=[Environment]::GetEnvironmentVariable($name)}
 $server=$null
 $owned=[Collections.Generic.List[Diagnostics.Process]]::new()
-$report=[ordered]@{status='running'; productionSigningConfigured=$false; disposableTestCredentials=$true; transport='HTTPS with an explicit disposable CA; TLS validation enabled'; cases=@(); nativeRestart=$false}
+$report=[ordered]@{status='running'; stage='Create disposable fixture'; productionSigningConfigured=$false; disposableTestCredentials=$true; transport='HTTPS with an explicit disposable CA; TLS validation enabled'; cases=@(); nativeRestart=$false}
 $reportPath=Join-Path $repository 'release/windows-x86_64/controlled-update-smoke.json'
 function Run-Checked([string]$Exe,[string[]]$Arguments) { & $Exe @Arguments; if($LASTEXITCODE -ne 0){throw "Controlled command failed: $Exe (exit $LASTEXITCODE)"} }
 function Start-Owned([string]$Exe,[string[]]$Arguments) {

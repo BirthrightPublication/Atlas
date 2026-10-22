@@ -79,6 +79,16 @@ async fn run(app: &tauri::AppHandle, case: &str) -> Result<(), String> {
         if case != "valid" {
             return Err("Unexpected restart into target test version".into());
         }
+        if std::net::TcpStream::connect("127.0.0.1:47832").is_ok() {
+            return Err("The old packaged companion process survived replacement".into());
+        }
+        let before = std::fs::read(root.join("controlled-companion-before.json"))
+            .map_err(|_| "Companion state was not captured")?;
+        let after = std::fs::read(root.join("companion-devices.json"))
+            .map_err(|_| "Companion configuration was lost")?;
+        if before != after {
+            return Err("Companion configuration changed during the update".into());
+        }
         std::fs::write(
             root.join("controlled-update-restarted.json"),
             json!({"version":"0.3.1-update-test.1","nativeRestart":true}).to_string(),
@@ -108,6 +118,20 @@ async fn run(app: &tauri::AppHandle, case: &str) -> Result<(), String> {
     }
     if status["available"] != true {
         return Err("Controlled newer release was not available".into());
+    }
+    if case == "valid" {
+        let companion = app.state::<crate::CompanionState>();
+        crate::companion::call(
+            app,
+            &companion,
+            "companion.start",
+            &json!({"origin":"https://localhost"}),
+        )?;
+        std::fs::copy(
+            root.join("companion-devices.json"),
+            root.join("controlled-companion-before.json"),
+        )
+        .map_err(|_| "Could not capture disposable companion configuration")?;
     }
     let atlas = app.state::<crate::AtlasState>();
     let result = crate::updates::install(app, &atlas, &state).await;

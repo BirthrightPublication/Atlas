@@ -88,12 +88,21 @@ pub async fn check(app: &tauri::AppHandle, state: &UpdateState) -> Result<Value,
         "linux"
     };
     let target = format!("{platform}-{}", std::env::consts::ARCH);
+    let exiting_app = app.clone();
     let builder = app
         .updater_builder()
         .pubkey(key)
         .target(&target)
         .endpoints(vec![endpoint])
         .map_err(|_| "Invalid update configuration")?
+        .on_before_exit(move || {
+            // The Windows installer exits without the ordinary Tauri exit event.
+            // Release the packaged sidecar before NSIS replaces its executable.
+            atlas_core::ai::cancel();
+            if let Ok(mut companion) = exiting_app.state::<crate::CompanionState>().0.lock() {
+                companion.stop();
+            }
+        })
         .timeout(Duration::from_secs(60));
     #[cfg(not(feature = "update-smoke"))]
     let builder = builder.configure_client(|client| client.https_only(true));
