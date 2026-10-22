@@ -1,0 +1,14 @@
+{
+  "id": "/companion",
+  "name": "Birthright: Atlas",
+  "short_name": "Atlas",
+  "description": "Your saved travel agenda, documents, and spending — available offline.",
+  "start_url": "/companion",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#121310",
+  "theme_color": "#121310",
+  "icons": [
+    { "src": "/companion-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

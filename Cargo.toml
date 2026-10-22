@@ -1,0 +1,14 @@
+[workspace]
+members = ["crates/atlas-core", "crates/atlas-host", "src-tauri"]
+default-members = ["crates/atlas-core", "crates/atlas-host"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.90"
+
+[profile.release]
+lto = "thin"
+strip = true
+codegen-units = 1
