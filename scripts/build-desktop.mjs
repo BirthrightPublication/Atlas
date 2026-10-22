@@ -35,8 +35,10 @@ async function publicResources(directory) {
   }
 }
 await publicResources('dist');
+await publicResources('src-tauri/icons');
 run('cargo', ['build', '--release', '--locked', '--target', target, '-p', 'atlas-host']);
 run(process.execPath, ['scripts/third-party-notices.mjs']);
+await chmod('release/THIRD_PARTY_NOTICES.txt', 0o644);
 await mkdir('src-tauri/binaries', { recursive: true });
 const extension = target.includes('windows') ? '.exe' : '';
 await copyFile(path.join('target', target, 'release', `atlas-host${extension}`), path.join('src-tauri/binaries', `atlas-host-${target}${extension}`));
