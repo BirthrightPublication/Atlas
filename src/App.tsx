@@ -22,8 +22,6 @@ import {
   Plane,
   Flag,
   Clock,
-  ShieldCheck,
-  Menu,
   RefreshCw,
   Send,
   CircleHelp,
@@ -50,6 +48,8 @@ import { ImportPanel } from "./Imports";
 import { Discover, MapView } from "./Discover";
 import { Budget } from "./Budget";
 import { SettingsPanel } from "./SettingsPanel";
+import { useDialog } from "./useDialog";
+import { APP_VERSION } from "./version";
 import { CompanionApp } from "./companion/CompanionApp";
 
 export default function App() {
@@ -63,10 +63,15 @@ function DesktopApp() {
   const [records, setRecords] = useState<AtlasRecord[]>([]);
   const [settings, setSettings] = useState<AtlasSettings>({});
   const [tab, setTab] = useState("Calendar");
+  const workspace = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    workspace.current?.scrollTo(0, 0);
+  }, [tab]);
   const [month, setMonth] = useState(today.slice(0, 7));
   const [selectedDate, setSelectedDate] = useState(today);
   const [view, setView] = useState("month");
   const [panel, setPanel] = useState("");
+  const [settingsCategory, setSettingsCategory] = useState("General");
   const [selected, setSelected] = useState<AtlasRecord | null>(null);
   const [importId, setImportId] = useState<string | undefined>();
   const [newMenu, setNewMenu] = useState(false);
@@ -77,8 +82,6 @@ function DesktopApp() {
   const [calendarRecords, setCalendarRecords] = useState<AtlasRecord[]>([]);
   const [updatesAvailable, setUpdatesAvailable] = useState(false);
   const [notice, setNotice] = useState("");
-  const [mobileNav, setMobileNav] = useState(false);
-  const [now, setNow] = useState(new Date());
   const currency = settings.currency || "USD";
   const currentZone =
     settings.currentTimezone ||
@@ -100,8 +103,6 @@ function DesktopApp() {
   }, []);
   useEffect(() => {
     void refresh();
-    const tick = setInterval(() => setNow(new Date()), 30000);
-    return () => clearInterval(tick);
   }, [refresh]);
   useEffect(() => {
     if (!loaded) return;
@@ -150,7 +151,6 @@ function DesktopApp() {
         setPanel("");
         setSelected(null);
         setNewMenu(false);
-        setMobileNav(false);
       }
     };
     window.addEventListener("keydown", esc);
@@ -259,94 +259,28 @@ function DesktopApp() {
   ] as const;
   return (
     <div className="atlas-app">
-      <aside className={`sidebar ${mobileNav ? "mobile-open" : ""}`}>
-        <button
-          className="brand"
-          onClick={() => {
-            setTab("Calendar");
-            setMobileNav(false);
-          }}
-          aria-label="Birthright: Atlas home"
-        >
-          <span className="brand-symbol">
-            A<span />
-          </span>
-          <span className="brand-words">
-            <small>BIRTHRIGHT</small>
-            <strong>
-              Atlas<span>.</span>
-            </strong>
-          </span>
-        </button>
-        <div className="sidebar-label">A LIFE IN MOTION</div>
-        <nav className="main-nav" aria-label="Main navigation">
-          {navigation.map(([label, Icon]) => (
-            <button
-              key={label}
-              className={tab === label ? "active" : ""}
-              onClick={() => {
-                setTab(label);
-                setMobileNav(false);
-              }}
-            >
-              <Icon size={19} strokeWidth={1.7} />
-              <span>{label}</span>
-              {tab === label && <i />}
-            </button>
-          ))}
-        </nav>
-        <div className="sidebar-line" />
-        <button
-          className="inbox-nav"
-          onClick={() => {
-            setPanel("imports");
-            setMobileNav(false);
-          }}
-        >
-          <ArrowDownToLine size={17} />
-          <span>Import inbox</span>
-          {drafts.length > 0 && <b>{drafts.length}</b>}
-        </button>
-        <div className="sidebar-bottom">
-          <div className="journey-note">
-            <span className="eyebrow">YOUR NEXT CHAPTER</span>
-            <p>{currentStay?.name || "Leave room for possibility."}</p>
-            <small>
-              {currentStay
-                ? `${prettyDate(currentStay.checkIn)} — ${prettyDate(currentStay.checkOut)}`
-                : "Plans can change. Make them yours."}
-            </small>
-          </div>
-          <button
-            className="sidebar-setting"
-            onClick={() => setPanel("settings")}
-          >
-            <Settings size={17} />
-            Settings<span>⌘</span>
-          </button>
-          <div className="local-status">
-            <span className={`status-dot ${loaded ? "online" : ""}`} />
-            {loaded ? "Local workspace" : "Connecting to local service"}
-            <ShieldCheck size={13} />
-          </div>
-        </div>
-      </aside>
       <main className="main-shell">
         <header className="topbar">
-          <button
-            className="icon-button mobile-menu"
-            aria-label="Open navigation"
-            onClick={() => setMobileNav(!mobileNav)}
-          >
-            <Menu size={21} />
-          </button>
-          <div className="breadcrumb">
-            YOUR WORLD<span>/</span>
-            <strong>{tab}</strong>
+          <div className="header-identity">
+            <button
+              className="header-brand"
+              onClick={() => setTab("Calendar")}
+              aria-label="Birthright: Atlas home"
+              title="Birthright: Atlas home"
+            >
+              <span>Birthright:</span> Atlas
+            </button>
+            <span
+              className="workspace-status"
+              data-connection={loaded ? "ready" : "connecting"}
+              title={loaded ? "Local workspace" : "Connecting to local service"}
+            >
+              <span className={`status-dot ${loaded ? "online" : ""}`} />
+              <span>{loaded ? "Local workspace" : "Connecting…"}</span>
+            </span>
           </div>
           <div className="topbar-actions">
             <div className="context-control">
-              <span>NEW ENTRY DEFAULT</span>
               <div className="context-toggle">
                 <button
                   className={
@@ -356,6 +290,7 @@ function DesktopApp() {
                   }
                   onClick={() => context("on_foot")}
                   title="Use On Foot defaults for new entries"
+                  aria-pressed={(settings.context || "on_foot") === "on_foot"}
                 >
                   <Footprints size={14} />
                   On Foot
@@ -364,13 +299,13 @@ function DesktopApp() {
                   className={settings.context === "on_road" ? "active" : ""}
                   onClick={() => context("on_road")}
                   title="Use On Road defaults for new entries"
+                  aria-pressed={settings.context === "on_road"}
                 >
                   <Car size={15} />
                   On Road
                 </button>
               </div>
             </div>
-            <span className="toolbar-separator" />
             <button
               className="icon-button notification-button"
               aria-label="Notifications"
@@ -384,18 +319,21 @@ function DesktopApp() {
               className="icon-button"
               aria-label="Application updates"
               title="Application updates"
-              onClick={() => setPanel("updates")}
+              onClick={() => {
+                setSettingsCategory("Application Updates");
+                setPanel("settings");
+              }}
             >
               <Download size={18} />
               {updatesAvailable && <span className="update-dot" />}
             </button>
             <button
               className="icon-button"
-              aria-label="Open settings"
-              title="Settings"
-              onClick={() => setPanel("settings")}
+              aria-label="Atlas Assistant"
+              title="Atlas Assistant"
+              onClick={() => setPanel("assistant")}
             >
-              <Settings size={18} />
+              <Sparkles size={18} />
             </button>
           </div>
         </header>
@@ -421,15 +359,10 @@ function DesktopApp() {
             </button>
           </div>
         )}
-        <div className="workspace-content">
+        <div className="workspace-content" ref={workspace}>
           {(tab === "Calendar" || tab === "Budget") && (
             <div className="calendar-toolbar">
               <div className="month-title">
-                <span className="eyebrow">
-                  {tab === "Calendar"
-                    ? "YOUR DAYS, BY DESIGN"
-                    : "MAKE ROOM FOR WHAT MATTERS"}
-                </span>
                 <div>
                   <h1>
                     {dateOf(`${month}-01`).toLocaleDateString("en", {
@@ -440,6 +373,7 @@ function DesktopApp() {
                   <div className="month-navigation">
                     <button
                       className="icon-button"
+                      title="Previous month"
                       aria-label="Previous month"
                       onClick={() => changeMonth(-1)}
                     >
@@ -447,6 +381,7 @@ function DesktopApp() {
                     </button>
                     <button
                       className="icon-button"
+                      title="Next month"
                       aria-label="Next month"
                       onClick={() => changeMonth(1)}
                     >
@@ -458,6 +393,7 @@ function DesktopApp() {
               <div className="calendar-toolbar-actions">
                 <button
                   className="secondary import-button"
+                  title="Import a booking or review the import inbox"
                   onClick={() => setPanel("imports")}
                 >
                   <ArrowDownToLine size={15} />
@@ -471,12 +407,17 @@ function DesktopApp() {
                     className="primary"
                     onClick={() => setNewMenu(!newMenu)}
                     aria-expanded={newMenu}
+                    aria-controls="entry-menu"
                   >
                     <Plus size={17} />
                     New entry
                   </button>
                   {newMenu && (
-                    <div className="entry-menu">
+                    <div
+                      className="entry-menu"
+                      id="entry-menu"
+                      aria-label="Create a record"
+                    >
                       {[
                         ["stay", "Stay", Home],
                         ["transport", "Transport", Plane],
@@ -511,6 +452,7 @@ function DesktopApp() {
                     <button
                       key={v}
                       className={view === v ? "active" : ""}
+                      aria-pressed={view === v}
                       onClick={() => setView(v)}
                     >
                       {v[0].toUpperCase() + v.slice(1)}
@@ -520,6 +462,8 @@ function DesktopApp() {
                 <span className="spacer" />
                 <button
                   className="text-button muted export-button"
+                  title="Export calendar"
+                  aria-label="Export calendar"
                   onClick={exportCalendar}
                 >
                   <Download size={14} />
@@ -554,73 +498,96 @@ function DesktopApp() {
                     onCreate={create}
                   />
                 </section>
-                <aside className="day-rail">
-                  <div className="rail-date">
-                    <span className="eyebrow">A LITTLE PERSPECTIVE</span>
-                    <h3>
-                      {prettyDate(selectedDate, {
-                        weekday: "long",
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </h3>
-                  </div>
-                  <Clocks
-                    now={now}
-                    localZone={currentZone}
-                    officeZone={officeZone}
-                    settings={settings}
-                  />
-                  <div className="rail-divider" />
-                  <div className="rail-section">
-                    <div className="rail-title">
-                      <Clock size={15} />
-                      <h3>Work, in local time</h3>
-                    </div>
-                    <WorkWindow
-                      work={work}
-                      stay={currentStay}
-                      date={selectedDate}
+              </div>
+              <section
+                className="day-context"
+                aria-label="Selected day information"
+              >
+                <details className="context-section">
+                  <summary>
+                    <Clock size={16} />
+                    <span>Clocks & work</span>
+                    <small>
+                      {work?.isWorkday === false
+                        ? "Office day off"
+                        : `${work?.requiredHours ?? 8}h work · ${work?.minOverlapHours ?? 4}h overlap`}
+                    </small>
+                    <ChevronRight size={14} />
+                  </summary>
+                  <div className="context-details">
+                    <Clocks
+                      localZone={currentZone}
+                      officeZone={officeZone}
+                      settings={settings}
                     />
-                    <button
-                      className="text-button"
-                      onClick={() => create("workBlock")}
-                    >
-                      Protect a work block
-                      <Plus size={13} />
-                    </button>
+                    <div className="rail-section">
+                      <h3>{prettyDate(selectedDate)} · Work schedule</h3>
+                      <WorkWindow
+                        work={work}
+                        stay={currentStay}
+                        date={selectedDate}
+                      />
+                      <button
+                        className="text-button"
+                        onClick={() => create("workBlock")}
+                      >
+                        Protect a work block <Plus size={14} />
+                      </button>
+                    </div>
                   </div>
-                  <div className="rail-divider" />
-                  <div className="rail-section">
-                    <div className="rail-title">
-                      <Wallet size={15} />
-                      <h3>A little breathing room</h3>
-                    </div>
-                    <div className="rail-money">
-                      {money(summary?.dailyAllowanceMinor, currency)}
-                      <small>/ day</small>
-                    </div>
+                </details>
+                <details className="context-section">
+                  <summary>
+                    <Wallet size={16} />
+                    <span>Daily allowance</span>
+                    <small>
+                      {money(summary?.dailyAllowanceMinor, currency)} / day
+                    </small>
+                    <ChevronRight size={14} />
+                  </summary>
+                  <div className="context-details compact">
                     <p>
                       {summary?.remainingDays ?? "—"} remaining eligible days
-                      <br />
-                      after committed and recorded spending
+                      after committed and recorded spending.
                     </p>
                     <button
                       className="text-button"
                       onClick={() => setTab("Budget")}
                     >
-                      Open budget
-                      <ArrowUpRight size={13} />
+                      Open budget <ArrowUpRight size={14} />
                     </button>
                   </div>
-                  <div className="rail-divider" />
-                  <GapNote
-                    records={records}
-                    date={selectedDate}
-                    onCreate={() => create("stay")}
-                  />
-                </aside>
-              </div>
+                </details>
+                <details className="context-section">
+                  <summary>
+                    <Home size={16} />
+                    <span>Accommodation</span>
+                    <small>
+                      {currentStay
+                        ? currentStay.name
+                        : records.some((r) => travelNight(r, selectedDate))
+                          ? "Traveling overnight"
+                          : "No confirmed stay"}
+                    </small>
+                    <ChevronRight size={14} />
+                  </summary>
+                  <div className="context-details compact">
+                    <GapNote
+                      records={records}
+                      date={selectedDate}
+                      onCreate={() => create("stay")}
+                    />
+                    {currentStay && (
+                      <button
+                        className="text-button"
+                        onClick={() => select(currentStay)}
+                      >
+                        View {currentStay.name} <ArrowUpRight size={14} />
+                      </button>
+                    )}
+                  </div>
+                </details>
+              </section>
             </>
           )}
           {tab === "Discover" && (
@@ -630,7 +597,10 @@ function DesktopApp() {
               onCreate={create}
               onSelect={select}
               onRefresh={refresh}
-              onSettings={() => setPanel("settings")}
+              onSettings={() => {
+                setSettingsCategory("Travel Preferences");
+                setPanel("settings");
+              }}
             />
           )}
           {tab === "Map" && (
@@ -657,19 +627,36 @@ function DesktopApp() {
             />
           )}
         </div>
-        <footer className="workspace-footer">
-          <span>
-            Birthright: Atlas <span className="muted">/ 0.1.0</span>
-          </span>
-          <span>Your plans. Your pace.</span>
+        <nav className="bottom-nav" aria-label="Main navigation">
+          <div className="destination-nav">
+            {navigation.map(([label, Icon]) => (
+              <button
+                key={label}
+                aria-current={tab === label ? "page" : undefined}
+                className={tab === label ? "active" : ""}
+                title={label}
+                onClick={() => {
+                  setTab(label);
+                  setNewMenu(false);
+                }}
+              >
+                <Icon size={19} strokeWidth={1.7} />
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
           <button
-            className="assistant-launcher"
-            onClick={() => setPanel("assistant")}
+            className="settings-gear"
+            aria-label="Settings"
+            title="Settings"
+            onClick={() => {
+              setSettingsCategory("General");
+              setPanel("settings");
+            }}
           >
-            <Sparkles size={14} />
-            Atlas Assistant<span>↗</span>
+            <Settings size={20} strokeWidth={1.7} />
           </button>
-        </footer>
+        </nav>
       </main>
       {selected && (
         <RecordForm
@@ -701,6 +688,13 @@ function DesktopApp() {
       {panel === "settings" && (
         <SettingsPanel
           settings={settings}
+          initialCategory={settingsCategory}
+          updates={<UpdatesContent onClose={() => setPanel("")} />}
+          onNotifications={() => setPanel("notifications")}
+          onBudget={() => {
+            setPanel("");
+            setTab("Budget");
+          }}
           onClose={() => setPanel("")}
           onRefresh={refresh}
         />
@@ -756,22 +750,24 @@ function DesktopApp() {
           </p>
         </SimplePanel>
       )}
-      {panel === "updates" && <Updates onClose={() => setPanel("")} />}
     </div>
   );
 }
 
 function Clocks({
-  now,
   localZone,
   officeZone,
   settings,
 }: {
-  now: Date;
   localZone: string;
   officeZone: string;
   settings: AtlasSettings;
 }) {
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 30000);
+    return () => clearInterval(timer);
+  }, []);
   const format = (zone: string, options: Intl.DateTimeFormatOptions) => {
     try {
       const fixed =
@@ -977,6 +973,7 @@ function SimplePanel({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  const dialog = useDialog(onClose);
   return (
     <div
       className="drawer-backdrop"
@@ -985,7 +982,9 @@ function SimplePanel({
       }}
     >
       <aside
-        className="drawer"
+        className="drawer floating-panel"
+        ref={dialog}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={eyebrow}
@@ -1062,7 +1061,9 @@ function Assistant({
         <Sparkles size={25} />
         <p>
           Ask about your saved plans and exact budget. Answers use your local
-          records; live availability requires a connected source.
+          records; live availability requires a connected source. These queries
+          use the built-in planner. Optional local inference is configured in
+          Settings → Email & Integrations.
         </p>
       </div>
       {messages.length === 0 && (
@@ -1158,7 +1159,7 @@ function Assistant({
   );
 }
 
-function Updates({ onClose }: { onClose: () => void }) {
+function UpdatesContent({ onClose }: { onClose: () => void }) {
   const [status, setStatus] = useState<any>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -1185,16 +1186,12 @@ function Updates({ onClose }: { onClose: () => void }) {
     void check();
   }, []);
   return (
-    <SimplePanel
-      title="Keep moving forward."
-      eyebrow="APPLICATION UPDATES"
-      onClose={onClose}
-    >
+    <section aria-label="Update status">
       <div className="update-version">
         <span className="brand-symbol">A</span>
         <div>
           <strong>Birthright: Atlas</strong>
-          <span>Version {status?.currentVersion || "0.1.0"}</span>
+          <span>Version {status?.currentVersion || APP_VERSION}</span>
         </div>
       </div>
       {error && <div className="error-banner">{error}</div>}
@@ -1240,6 +1237,6 @@ function Updates({ onClose }: { onClose: () => void }) {
           Later
         </button>
       </div>
-    </SimplePanel>
+    </section>
   );
 }

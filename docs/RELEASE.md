@@ -1,5 +1,13 @@
 # Release and signed update procedure
 
+For the 0.2.0 preview and the verified manual upgrade procedure, see
+[v0.2 validation](VALIDATION-v0.2.md). Product identity, installation mode and
+the user-data directory remain unchanged from 0.1.0. The Windows CI job verifies
+the old installer, launches it, populates synthetic records through its packaged
+service, then installs 0.2.0 into the same directory and checks retained data.
+Expired baseline artifacts are reproduced from pinned 0.1 source in a temporary
+directory. The preview does not enable an unsigned automatic update feed.
+
 Development builds have an explicitly unconfigured update state. They never
 accept unsigned updates. Production updates use Tauri's verifier, an HTTPS
 platform manifest, and a compiled public key. An owner action is required before

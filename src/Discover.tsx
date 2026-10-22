@@ -108,11 +108,9 @@ export function Discover({
   return (
     <div className="discover-page">
       <div className="page-intro">
-        <span className="eyebrow">KEEP YOUR OPTIONS OPEN</span>
-        <h1>Somewhere worth going.</h1>
+        <h1>Discover</h1>
         <p>
-          A considered library of places to look, and a home for the ones you
-          find.
+          Your website library, saved places and date-specific offers.
         </p>
       </div>
       <div className="subnav">
@@ -608,8 +606,7 @@ export function MapView({
   return (
     <div className="map-page">
       <div className="page-intro">
-        <span className="eyebrow">FIND YOUR BEARINGS</span>
-        <h1>Places along the way.</h1>
+        <h1>Map</h1>
         <p>
           Your saved locations, ready for directions. Open a mapping provider
           for live routes.

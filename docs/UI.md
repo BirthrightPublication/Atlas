@@ -5,6 +5,24 @@ calculations. Native windows use Tauri IPC. Development uses Vite's loopback
 proxy to the authenticated host in development mode. There is no mock database
 fallback when the service is unavailable.
 
+Version 0.2 uses `src/theme.css` for the common neutral palette and `src/shell.css`
+for the native desktop layout. The header, scrollable workspace and bottom dock
+occupy separate grid rows, so content cannot disappear beneath navigation.
+Calendar, Discover, Map and Budget keep their full content width. Switching
+modules starts at the top of the destination workspace. Safe-area insets protect
+the dock on compact displays.
+
+The Settings gear exists only at the dock's far right. Settings and other
+temporary dialogs keep keyboard focus inside, close with Escape and restore
+focus to the launcher. Settings categories use arrow-key navigation. Only
+changed preference keys are saved; unrelated connector changes are preserved.
+Clocks update within their own component instead of rerendering the calendar
+every 30 seconds. There are no backdrop blurs or decorative animated effects.
+
+Selected-day clocks, office status, work rules, allowance and accommodation gaps
+remain in expandable summaries below Calendar. The assistant opens from the
+header. Import booking and its review count remain in Calendar/Budget actions.
+
 Calendar supports month, agenda, day, and journey views. Phone widths switch to
 an agenda rather than shrinking month cells. Stays occupy continuous night bands;
 objectives and protected work appear below them; transport markers remain compact.

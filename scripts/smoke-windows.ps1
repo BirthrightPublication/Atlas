@@ -6,7 +6,9 @@
 param(
     [Parameter(Mandatory = $true)]
     [ValidateNotNullOrEmpty()]
-    [string] $InstallerPath
+    [string] $InstallerPath,
+    [string] $PreviousInstallerPath,
+    [string] $PreviousInstallerSha256
 )
 
 Set-StrictMode -Version Latest
@@ -160,6 +162,25 @@ try {
         throw 'An Atlas shortcut or current-user installation registration already exists. Refusing to overwrite an earlier installation during a smoke test.'
     }
 
+    if (-not [string]::IsNullOrWhiteSpace($PreviousInstallerPath)) {
+        $stage = 'Install and populate v0.1 upgrade baseline'
+        if ($PreviousInstallerSha256 -notmatch '^[0-9a-f]{64}$') { throw 'A verified baseline installer SHA-256 is required.' }
+        $previousHash = (Get-FileHash -LiteralPath $PreviousInstallerPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($previousHash -cne $PreviousInstallerSha256) { throw 'Baseline installer changed after verification.' }
+        $previousInstall = Start-Process -FilePath $PreviousInstallerPath -ArgumentList "/S /D=$installDirectory" -PassThru
+        $ownedProcesses.Add($previousInstall)
+        if (-not $previousInstall.WaitForExit(180000) -or $previousInstall.ExitCode -ne 0) { throw 'The v0.1 baseline installer did not complete successfully.' }
+        $previousLaunch = Start-InstalledAtlas 'v0.1 baseline launch'
+        Close-InstalledAtlas $previousLaunch.Process 'v0.1 baseline launch'
+        $previousVersion = [Diagnostics.FileVersionInfo]::GetVersionInfo($installedExecutable).ProductVersion
+        if ($previousVersion -notmatch '^0\.1\.0(?:\.|$)') { throw "The baseline executable has an unexpected version: $previousVersion" }
+        $upgradeSnapshot = Join-Path $testRoot 'upgrade-before.json'
+        & node (Join-Path $repository 'scripts/check-upgrade.mjs') seed (Join-Path $installDirectory 'atlas-host.exe') $databaseDirectory $upgradeSnapshot
+        if ($LASTEXITCODE -ne 0) { throw 'Populating the isolated v0.1 profile failed.' }
+        $report.upgradeFrom = $previousVersion
+        $report.previousInstallerSha256 = $previousHash
+    }
+
     $stage = 'Silent install exact staged NSIS artifact'
     # NSIS /D consumes the remaining command line: it must be the last argument
     # and the directory itself must not be quoted, including when it has spaces.
@@ -173,6 +194,9 @@ try {
             throw "The installed application is missing the nonempty packaged resource '$resource'."
         }
     }
+    $installedVersion = [Diagnostics.FileVersionInfo]::GetVersionInfo($installedExecutable).ProductVersion
+    if ($installedVersion -ne $version -and $installedVersion -ne "$version.0") { throw "Installed executable version '$installedVersion' differs from '$version'." }
+    $report.installedVersion = $installedVersion
     $report.packagedResources = @('atlas-host.exe', 'companion-ui/index.html', 'THIRD_PARTY_NOTICES.txt')
     $report.installerExitCode = $install.ExitCode
     if (-not [IO.File]::Exists($shortcutPath)) { throw "NSIS did not create the configured normal Start Menu launcher '$productName.lnk'." }
@@ -229,6 +253,17 @@ try {
     }
     & node $probePath $databasePath 'verify' $runId
     if ($LASTEXITCODE -ne 0) { throw "Restart SQLite persistence validation failed (node exit $LASTEXITCODE)." }
+    if (-not [string]::IsNullOrWhiteSpace($PreviousInstallerPath)) {
+        $stage = 'Verify v0.1 data after manual installer upgrade'
+        # Remove only the smoke marker added after the baseline snapshot.
+        & node -e "const {DatabaseSync}=require('node:sqlite');const db=new DatabaseSync(process.argv[1]);db.prepare('DELETE FROM settings WHERE key = ?').run('windows_installer_smoke');db.close();" $databasePath
+        if ($LASTEXITCODE -ne 0) { throw 'Temporary restart marker cleanup failed.' }
+        & node (Join-Path $repository 'scripts/check-upgrade.mjs') verify (Join-Path $installDirectory 'atlas-host.exe') $databaseDirectory $upgradeSnapshot
+        if ($LASTEXITCODE -ne 0) { throw 'The manual installer upgrade changed v0.1 data or accounting.' }
+        $report.manualUpgrade = 'passed'
+        $report.preserved = @('records', 'stable IDs', 'versions', 'history', 'preferences', 'named presets', 'documents', 'schema', 'exact accounting')
+        $report.packagedServiceProbe = $true
+    }
     $report.sqliteIntegrity = 'ok'
     $report.persistenceMarkerRetained = $true
     $report.status = 'passed'

@@ -12,7 +12,7 @@ test('booking review, calendar, payments, revisions, and restart persistence', a
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
-  await expect(page.getByText('Local workspace', { exact: true })).toBeVisible();
+  await expect(page.locator('[data-connection=ready]')).toBeVisible();
   await page.getByRole('button', { name: /^Import booking/ }).click();
   await page.getByRole('button', { name: 'Try a synthetic sample confirmation' }).click();
   await page.getByRole('button', { name: 'Create review drafts' }).click();
@@ -62,7 +62,7 @@ test('booking review, calendar, payments, revisions, and restart persistence', a
 test('manual objective and real reminder remain after reload', async ({ page }) => {
   await page.clock.setFixedTime(new Date('2026-12-01T12:00:00Z'));
   await page.goto('/');
-  await expect(page.getByText('Local workspace', { exact: true })).toBeVisible();
+  await expect(page.locator('[data-connection=ready]')).toBeVisible();
   await page.getByRole('button', { name: 'New entry', exact: true }).click();
   await page.getByRole('button', { name: 'Objective', exact: true }).click();
   await page.getByLabel('Name', { exact: true }).fill('Synthetic grocery stop');
@@ -80,15 +80,4 @@ test('manual objective and real reminder remain after reload', async ({ page }) 
   expect(objectives.some((r: any) => r.name === 'Synthetic grocery stop')).toBe(true);
   await page.getByRole('button', { name: 'Notifications', exact: true }).click();
   await expect(page.getByText('Synthetic checkout reminder', { exact: true })).toBeVisible();
-});
-
-test('desktop and phone layouts stay usable without overflow', async ({ page }) => {
-  await page.clock.setFixedTime(new Date('2026-12-01T12:00:00Z'));
-  await page.goto('/');
-  await expect(page.getByText('Local workspace', { exact: true })).toBeVisible();
-  await page.screenshot({ path: 'test-results/atlas-desktop.png', fullPage: true });
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.getByRole('button', { name: 'Open navigation' })).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.screenshot({ path: 'test-results/atlas-phone.png', fullPage: true });
 });

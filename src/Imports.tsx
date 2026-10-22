@@ -9,6 +9,7 @@ import {
   Inbox,
   Check,
 } from "lucide-react";
+import { useDialog } from "./useDialog";
 import { AtlasRecord, rpc } from "./api";
 
 export const SYNTHETIC_CONFIRMATION = `Booking confirmation\nProvider: Example Stays\nReservation ID: SYNTHETIC-ATLAS-001\nProperty: Riverside apartment\nAddress: Example Street, Lisbon, Portugal\nCheck-in: 2026-12-12\nCheck-out: 2027-01-11\nTimezone: Europe/Lisbon\nTotal: USD 900.00\nRefrigerator: yes\nWorkspace: yes\nStatus: confirmed\nThis is synthetic sample data for testing.`;
@@ -24,6 +25,7 @@ export function ImportPanel({
   onRefresh: () => Promise<void>;
   onReview: (draft: AtlasRecord) => void;
 }) {
+  const dialog = useDialog(onClose);
   const [text, setText] = useState("");
   const [parsedText, setParsedText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -78,6 +80,8 @@ export function ImportPanel({
     >
       <aside
         className="drawer wide-drawer"
+        ref={dialog}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="Import bookings"

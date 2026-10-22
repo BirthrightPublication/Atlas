@@ -233,7 +233,7 @@ dependencies = [
 
 [[package]]
 name = "atlas-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -257,7 +257,7 @@ dependencies = [
 
 [[package]]
 name = "atlas-desktop"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "atlas-core",
  "serde_json",
@@ -272,7 +272,7 @@ dependencies = [
 
 [[package]]
 name = "atlas-host"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "atlas-core",
  "axum",
