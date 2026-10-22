@@ -23,6 +23,8 @@ import {
   rpc,
 } from "./api";
 
+import { useDialog } from "./useDialog";
+
 export function newRecord(
   kind: string,
   date: string,
@@ -158,6 +160,7 @@ export function RecordForm({
   onClose: () => void;
   importId?: string;
 }) {
+  const dialog = useDialog(onClose);
   const [form, setForm] = useState<AtlasRecord>({ ...record });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -277,6 +280,8 @@ export function RecordForm({
     >
       <aside
         className="drawer"
+        ref={dialog}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={record.name || `New ${record.kind}`}

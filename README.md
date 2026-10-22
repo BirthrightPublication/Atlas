@@ -5,7 +5,10 @@ and money. The native desktop application uses Tauri 2, React/TypeScript, Rust
 services, and SQLite. An optional paired phone companion shares the same service
 boundary and keeps an explicit offline edit queue.
 
-**Release status: development preview.** See [feature status](docs/FEATURES.md)
+**Version 0.2.0: development preview.** The neutral dark interface uses a bottom
+dock and full-width calendar, with contextual details and Settings in temporary
+interfaces. See [v0.2 validation and manual upgrades](docs/VALIDATION-v0.2.md)
+and [feature status](docs/FEATURES.md)
 for implemented behavior and the account, hardware, and release checks that have
 not been performed. A workflow or connector definition is not a verified release.
 

@@ -47,6 +47,7 @@ for (const [sourceName, filename, updater] of plan.files) {
   }
   await copyFile(source, path.join(output, filename));
   manifest.files.push(item);
+  console.log(`::notice title=Artifact SHA-256::${filename} sha256=${item.sha256} bytes=${item.size}`);
 }
 await writeFile(path.join(output, 'artifacts.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 console.log(`Staged ${manifest.files.length} exact artifacts for ${plan.platform}; signed=${signed}`);

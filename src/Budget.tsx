@@ -57,8 +57,7 @@ export function Budget({
     <div className="budget-page">
       <div className="page-intro budget-intro">
         <div>
-          <span className="eyebrow">FREEDOM, WITH A PLAN</span>
-          <h1>Know what’s possible.</h1>
+          <h1>Budget</h1>
           <p>One financial history. Three useful ways to see it.</p>
         </div>
         <button className="secondary" onClick={onEditBudget}>

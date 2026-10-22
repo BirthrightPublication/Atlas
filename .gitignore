@@ -26,3 +26,4 @@ src-tauri/tauri.bundle.conf.json
 src-tauri/tauri.release.conf.json
 release/
 *.tsbuildinfo
+__pycache__/

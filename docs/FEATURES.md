@@ -3,6 +3,13 @@
 This document distinguishes source implementation from runtime and release
 validation. Checks used the Linux cloud workspace and native CI runners.
 
+Version 0.2.0 replaces the desktop sidebar and calendar information rail with a
+bottom dock and expandable contextual summaries. A shared neutral theme covers
+the desktop, integrations and companion. Settings uses a keyboard-accessible
+modal with ten categories. Existing domain services and schema 3 are unchanged.
+See [v0.2 validation](VALIDATION-v0.2.md) for current checks; the original
+[v0.1 report](VALIDATION.md) remains a historical record.
+
 | Area | Implemented behavior | Validation / limitation |
 | --- | --- | --- |
 | Persistent records | SQLite, stable IDs, versions, relationships, history, local files | Restart, conflict, migration, document backup/restore tests pass |

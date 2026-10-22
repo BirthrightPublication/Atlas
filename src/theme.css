@@ -1,0 +1,18 @@
+/* Shared by the native shell, every module, and the phone companion. */
+:root {
+  --bg: #0b0c0e;
+  --panel: #15171b;
+  --raised: #24272d;
+  --border: #353a40;
+  --text: #e7e9ec;
+  --muted: #a2a8b2;
+  --accent: #ced3da;
+  --nav-inactive: #8c949e;
+  --border-strong: #626b76;
+  --on-accent: #0b0c0e;
+  --overlay: #00000099;
+  --success: #8ec8aa;
+  --danger: #f2a2a2;
+  --warning: #d9b77c;
+  --dock-height: 60px;
+}

@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 import {
   X,
   Save,
@@ -18,18 +18,43 @@ import {
 } from "lucide-react";
 import { Settings, isDesktop, money, openExternal, rpc } from "./api";
 import { MoneyField } from "./RecordForm";
+import { useDialog } from "./useDialog";
+import { APP_VERSION } from "./version";
 import { AiSettings, PhoneSettings } from "./Integrations";
+
+const CATEGORIES = [
+  "General",
+  "Appearance",
+  "Travel Preferences",
+  "Work Schedule",
+  "Budget Defaults",
+  "Notifications",
+  "Email & Integrations",
+  "Privacy & Data",
+  "Application Updates",
+  "About Atlas",
+];
 
 export function SettingsPanel({
   settings,
+  initialCategory = "General",
+  updates,
+  onNotifications,
+  onBudget,
   onClose,
   onRefresh,
 }: {
   settings: Settings;
+  initialCategory?: string;
+  updates: ReactNode;
+  onNotifications: () => void;
+  onBudget: () => void;
   onClose: () => void;
   onRefresh: () => Promise<void>;
 }) {
-  const [tab, setTab] = useState("Preferences");
+  const [tab, setTab] = useState(initialCategory);
+  const baseline = useRef(settings);
+  const dialog = useDialog(onClose);
   const [form, setForm] = useState<Settings>({
     ...settings,
     preferences: { ...settings.preferences },
@@ -62,56 +87,94 @@ export function SettingsPanel({
   }
   async function save(e: FormEvent) {
     e.preventDefault();
-    await run(
-      () => rpc("settings.save", { settings: form }),
-      "Preferences saved.",
+    const changed = Object.fromEntries(
+      Object.entries(form).filter(
+        ([key, value]) =>
+          JSON.stringify(value) !== JSON.stringify(baseline.current[key]),
+      ),
     );
+    await run(async () => {
+      await rpc("settings.save", { settings: changed });
+      baseline.current = { ...baseline.current, ...changed };
+    }, "Preferences saved.");
   }
+  const editable = ["General", "Travel Preferences", "Work Schedule"].includes(
+    tab,
+  );
   return (
     <div
-      className="drawer-backdrop"
+      className="drawer-backdrop modal-backdrop"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <aside
-        className="drawer wide-drawer"
+      <section
+        className="drawer settings-modal"
+        ref={dialog}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
-        aria-label="Settings"
+        aria-labelledby="settings-title"
       >
-        <div className="drawer-top">
-          <span className="eyebrow">MAKE ATLAS YOUR OWN</span>
+        <div className="modal-heading">
+          <div>
+            <span className="eyebrow">BIRTHRIGHT: ATLAS</span>
+            <h2 id="settings-title">Settings</h2>
+          </div>
           <button
             className="icon-button"
             aria-label="Close settings"
+            title="Close settings (Escape)"
             onClick={onClose}
           >
             <X size={20} />
           </button>
         </div>
-        <div className="drawer-heading">
-          <h2>A little more you.</h2>
-          <p>Personal defaults, your connections, and your local data.</p>
-        </div>
-        <div className="settings-tabs">
-          {[
-            "Preferences",
-            "Work & clocks",
-            "Email import",
-            "Data & recovery",
-            "Phone",
-          ].map((t) => (
+        <div
+          className="settings-tabs"
+          role="tablist"
+          aria-label="Settings categories"
+          onKeyDown={(event) => {
+            const current = CATEGORIES.indexOf(tab);
+            const next =
+              event.key === "ArrowRight"
+                ? (current + 1) % CATEGORIES.length
+                : event.key === "ArrowLeft"
+                  ? (current + CATEGORIES.length - 1) % CATEGORIES.length
+                  : event.key === "Home"
+                    ? 0
+                    : event.key === "End"
+                      ? CATEGORIES.length - 1
+                      : -1;
+            if (next >= 0) {
+              event.preventDefault();
+              setTab(CATEGORIES[next]);
+              document.getElementById(`settings-tab-${next}`)?.focus();
+            }
+          }}
+        >
+          {CATEGORIES.map((category, index) => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={tab === t ? "active" : ""}
+              key={category}
+              id={`settings-tab-${index}`}
+              role="tab"
+              aria-selected={tab === category}
+              aria-controls="settings-content"
+              tabIndex={tab === category ? 0 : -1}
+              className={tab === category ? "active" : ""}
+              onClick={() => setTab(category)}
             >
-              {t}
+              {category}
             </button>
           ))}
         </div>
-        <div className="detail-content">
+        <div
+          className="detail-content settings-content"
+          id="settings-content"
+          role="tabpanel"
+          aria-labelledby={`settings-tab-${CATEGORIES.indexOf(tab)}`}
+          tabIndex={0}
+        >
           {error && (
             <div role="alert" className="error-banner">
               {error}
@@ -123,64 +186,9 @@ export function SettingsPanel({
               {notice}
             </div>
           )}
-          {tab === "Email import" ? (
-            <EmailSettings />
-          ) : tab === "Data & recovery" ? (
-            <>
-              <div className="settings-feature">
-                <Database size={24} />
-                <div>
-                  <h3>Your data lives with you.</h3>
-                  <p>
-                    Records, documents, and backups are stored in your OS
-                    user-data directory. Plain SQLite is not encrypted. Protect
-                    your device with OS encryption and a strong account
-                    password.
-                  </p>
-                </div>
-              </div>
-              <button
-                className="secondary full"
-                disabled={busy}
-                onClick={() => run(() => rpc("backup.export"), "Backup saved:")}
-              >
-                <Download size={16} />
-                Create a local backup
-              </button>
-              <h3 className="form-section">Restore a local backup</h3>
-              <p className="field-help">
-                Choose the basename of an Atlas backup from its own backups
-                folder. Atlas creates a safety backup before restoring. Close
-                other Atlas clients first.
-              </p>
-              <label className="field">
-                <span>Backup filename</span>
-                <input
-                  value={restoreFile}
-                  onChange={(e) => setRestoreFile(e.target.value)}
-                  placeholder="atlas-backup-…"
-                />
-              </label>
-              <button
-                className="secondary"
-                disabled={busy || !restoreFile}
-                onClick={() =>
-                  run(
-                    () => rpc("backup.restore", { filename: restoreFile }),
-                    "Backup restored.",
-                  )
-                }
-              >
-                Restore backup
-              </button>
-              <h3 className="form-section">Local AI</h3>
-              <AiSettings settings={settings} onRefresh={onRefresh} />
-            </>
-          ) : tab === "Phone" ? (
-            <PhoneSettings />
-          ) : (
+          {editable && (
             <form onSubmit={save}>
-              {tab === "Preferences" && (
+              {tab === "General" && (
                 <>
                   <div className="form-grid">
                     <label className="field">
@@ -227,6 +235,10 @@ export function SettingsPanel({
                     Your confirmed location is separate from future stay
                     locations. Atlas does not infer it from your IP address.
                   </p>
+                </>
+              )}
+              {tab === "Travel Preferences" && (
+                <>
                   <h3 className="form-section">Stay preferences</h3>
                   <label className="field">
                     <span>Preset name</span>
@@ -365,7 +377,7 @@ export function SettingsPanel({
                   )}
                 </>
               )}
-              {tab === "Work & clocks" && (
+              {tab === "Work Schedule" && (
                 <>
                   <label className="field">
                     <span>Employer timezone mode</span>
@@ -577,8 +589,149 @@ export function SettingsPanel({
               </div>
             </form>
           )}
+          {tab === "Appearance" && (
+            <section className="settings-section">
+              <h3>Neutral dark</h3>
+              <p>
+                Charcoal surfaces, crisp text and restrained gray accents. The
+                default appearance in Atlas {APP_VERSION}.
+              </p>
+              <div
+                className="theme-preview"
+                aria-label="Neutral dark theme preview"
+              >
+                <span>Birthright: Atlas</span>
+                <div />
+                <div />
+                <strong>
+                  <Check size={16} />
+                  Active theme
+                </strong>
+              </div>
+              <p className="field-help">
+                Additional themes are not available in this release. Atlas
+                follows your system’s reduced-motion preference.
+              </p>
+            </section>
+          )}
+          {tab === "Budget Defaults" && (
+            <section className="settings-section">
+              <h3>Monthly budgets</h3>
+              <p>
+                Income, opening balance, protected reserve and daily allowance
+                are saved separately for each month and currency. Edit them in
+                Budget; existing payments and recorded costs stay intact.
+              </p>
+              <button className="secondary" onClick={onBudget}>
+                Open budget
+              </button>
+              <p className="field-help">
+                Automatic defaults for future months are not configured.
+                Accommodation targets are in Travel Preferences.
+              </p>
+            </section>
+          )}
+          {tab === "Notifications" && (
+            <section className="settings-section">
+              <h3>Reminders & delivery</h3>
+              <p>
+                Atlas delivers reminders while the desktop app is running. Each
+                reminder has its own snooze, dismissal and catch-up policy. Your
+                operating system controls notification banners.
+              </p>
+              <button className="secondary" onClick={onNotifications}>
+                Manage reminders
+              </button>
+              <p className="field-help">
+                Closed-app phone push is not available. Calendar export remains
+                available from Calendar.
+              </p>
+            </section>
+          )}
+          {tab === "Email & Integrations" && (
+            <>
+              <details className="settings-disclosure" open>
+                <summary>Email imports</summary>
+                <EmailSettings />
+              </details>
+              <details className="settings-disclosure">
+                <summary>Local AI</summary>
+                <AiSettings settings={settings} onRefresh={onRefresh} />
+              </details>
+              <details className="settings-disclosure">
+                <summary>Phone companion</summary>
+                <PhoneSettings />
+              </details>
+            </>
+          )}
+          {tab === "Privacy & Data" && (
+            <>
+              <div className="settings-feature">
+                <Database size={24} />
+                <div>
+                  <h3>Your data lives with you.</h3>
+                  <p>
+                    Records, documents, and backups are stored in your OS
+                    user-data directory. Plain SQLite is not encrypted. Protect
+                    your device with OS encryption and a strong account
+                    password.
+                  </p>
+                </div>
+              </div>
+              <button
+                className="secondary full"
+                disabled={busy}
+                onClick={() => run(() => rpc("backup.export"), "Backup saved:")}
+              >
+                <Download size={16} />
+                Create a local backup
+              </button>
+              <h3 className="form-section">Restore a local backup</h3>
+              <p className="field-help">
+                Choose the basename of an Atlas backup from its own backups
+                folder. Atlas creates a safety backup before restoring. Close
+                other Atlas clients first.
+              </p>
+              <label className="field">
+                <span>Backup filename</span>
+                <input
+                  value={restoreFile}
+                  onChange={(e) => setRestoreFile(e.target.value)}
+                  placeholder="atlas-backup-…"
+                />
+              </label>
+              <button
+                className="secondary"
+                disabled={busy || !restoreFile}
+                onClick={() =>
+                  run(
+                    () => rpc("backup.restore", { filename: restoreFile }),
+                    "Backup restored.",
+                  )
+                }
+              >
+                Restore backup
+              </button>
+            </>
+          )}
+          {tab === "Application Updates" && updates}
+          {tab === "About Atlas" && (
+            <section className="settings-section">
+              <h3>Birthright: Atlas</h3>
+              <p>Version {APP_VERSION} · Development preview</p>
+              <p>
+                Your stays, travel, work and spending in one local workspace. No
+                telemetry. Records remain in the same user-data directory when
+                you update.
+              </p>
+              <p className="field-help">
+                Third-party notices are included with the installed application.
+                No application license has been selected.
+              </p>
+            </section>
+          )}
         </div>
-      </aside>
+      </section>
     </div>
   );
 }

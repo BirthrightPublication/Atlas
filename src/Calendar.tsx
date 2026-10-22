@@ -160,7 +160,7 @@ export function Calendar({
                   className="calendar-week"
                   key={week[0]}
                   style={{
-                    minHeight: 138 + Math.max(0, lanes.length - 1) * 34,
+                    minHeight: `calc(clamp(100px, 11vh, 150px) + ${Math.max(0, lanes.length - 1) * 34}px)`,
                   }}
                 >
                   <div className="day-cells">
@@ -209,6 +209,7 @@ export function Calendar({
                             </span>
                           )}
                         {stays.length > 0 &&
+                          d === selectedDate &&
                           d.slice(0, 7) === month &&
                           !stays.some(
                             (r) => r.checkIn <= d && r.checkOut > d,
