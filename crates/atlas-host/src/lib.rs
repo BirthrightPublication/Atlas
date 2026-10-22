@@ -710,6 +710,9 @@ async fn rpc(
     let receipt_id = request.request_id.clone();
     let method = request.method.clone();
     let result = tokio::task::spawn_blocking(move || {
+        if dev && request.method == "releases.history" {
+            return atlas_core::releases::query(&core, &request.payload);
+        }
         let mut atlas = core
             .lock()
             .map_err(|_| "Atlas service unavailable".to_string())?;

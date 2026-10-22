@@ -156,8 +156,11 @@ export function UpdatesPanel({
       </button>
       <section>
         <h3>Published release history</h3>
-        {history?.cached && (
-          <p className="muted">Cached metadata. {history.error}</p>
+        {history?.warning && (
+          <p className="muted">
+            {history.lastChecked ? "Showing cached metadata. " : ""}
+            {history.warning}
+          </p>
         )}
         {history?.lastChecked && (
           <small>
@@ -166,7 +169,7 @@ export function UpdatesPanel({
         )}
         {history?.releases?.length === 0 && (
           <p className="muted">
-            {history.error
+            {history.warning
               ? "Published releases could not be retrieved. No cached history is available."
               : "No published releases yet. CI installer artifacts are development previews."}
           </p>

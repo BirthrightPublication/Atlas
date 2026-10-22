@@ -265,3 +265,21 @@ input[inputmode="decimal"] {
     padding: 16px 0;
   }
 }
+
+/* Give the chat a definite flex height so its composer stays near the dock. */
+.utility-body {
+  display: flex;
+  flex-direction: column;
+}
+.utility-body > div:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+.chat-layout {
+  flex: 1;
+  min-height: 0;
+}
+.chat-messages {
+  max-height: none;
+}

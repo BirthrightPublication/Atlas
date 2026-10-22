@@ -38,54 +38,93 @@ pub fn normalize(input: &Value, current: &str) -> Result<Value, String> {
         .map(|(_, v)| v)
         .collect::<Vec<_>>()))
 }
+fn fetch() -> Result<Value, String> {
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(12))
+        .https_only(true)
+        .user_agent("Birthright-Atlas-release-history")
+        .build()
+        .map_err(error)?;
+    let response = client
+        .get("https://api.github.com/repos/BirthrightPublication/Atlas/releases?per_page=100")
+        .header("Accept", "application/vnd.github+json")
+        .send()
+        .map_err(|_| "Could not connect to the published release service")?
+        .error_for_status()
+        .map_err(|_| "Published release metadata could not be fetched")?;
+    if response
+        .content_length()
+        .is_some_and(|n| n > 4 * 1024 * 1024)
+    {
+        return Err("Release metadata exceeds the size limit".into());
+    }
+    let mut bytes = vec![];
+    std::io::Read::take(response, 4 * 1024 * 1024 + 1)
+        .read_to_end(&mut bytes)
+        .map_err(error)?;
+    if bytes.len() > 4 * 1024 * 1024 {
+        return Err("Release metadata exceeds the size limit".into());
+    }
+    let input: Value = serde_json::from_slice(&bytes).map_err(error)?;
+    let releases = normalize(&input, env!("CARGO_PKG_VERSION"))?;
+    Ok(
+        json!({"releases":releases,"lastChecked":now(),"cached":false,"source":"GitHub published releases","installationAuthority":false}),
+    )
+}
+fn cached_result(mut cached: Value, reason: String) -> Value {
+    if !cached.is_object() {
+        cached = json!({"releases":[],"lastChecked":null});
+    }
+    cached["cached"] = json!(true);
+    cached["warning"] = json!(reason);
+    cached
+}
+fn current_labels(mut value: Value) -> Value {
+    if let Some(rows) = value["releases"].as_array_mut() {
+        let current = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
+        for row in rows {
+            if let Ok(version) = Version::parse(row["version"].as_str().unwrap_or("")) {
+                row["current"] = json!(version == current);
+                row["newer"] = json!(version > current);
+            }
+        }
+    }
+    value
+}
+/// Fetch outside the database mutex so a slow or offline update service cannot
+/// block navigation, chat, saved records or accounting requests.
+pub fn query(atlas: &std::sync::Mutex<Atlas>, p: &Value) -> Result<Value, String> {
+    let cached = atlas
+        .lock()
+        .map_err(|_| "Application service unavailable")?
+        .settings()?["releaseHistoryCache"]
+        .clone();
+    if p["refresh"] == false && cached.is_object() {
+        return Ok(current_labels(cached));
+    }
+    match fetch() {
+        Ok(value) => {
+            atlas
+                .lock()
+                .map_err(|_| "Application service unavailable")?
+                .save_settings(&json!({"releaseHistoryCache":value}))?;
+            Ok(value)
+        }
+        Err(reason) => Ok(current_labels(cached_result(cached, reason))),
+    }
+}
 impl Atlas {
     pub(crate) fn release_history(&mut self, p: &Value) -> Result<Value, String> {
         let cached = self.settings()?["releaseHistoryCache"].clone();
         if p["refresh"] == false && cached.is_object() {
-            return Ok(cached);
+            return Ok(current_labels(cached));
         }
-        let fetched = (|| -> Result<Value, String> {
-            let client = reqwest::blocking::Client::builder()
-                .timeout(Duration::from_secs(12))
-                .https_only(true)
-                .user_agent("Birthright-Atlas-release-history")
-                .build()
-                .map_err(error)?;
-            let response=client.get("https://api.github.com/repos/BirthrightPublication/Atlas/releases?per_page=100").header("Accept","application/vnd.github+json").send().map_err(|_|"Release history unavailable offline")?.error_for_status().map_err(|_|"Published release metadata could not be fetched")?;
-            if response
-                .content_length()
-                .is_some_and(|n| n > 4 * 1024 * 1024)
-            {
-                return Err("Release metadata exceeds the size limit".into());
-            }
-            let mut bytes = vec![];
-            std::io::Read::take(response, 4 * 1024 * 1024 + 1)
-                .read_to_end(&mut bytes)
-                .map_err(error)?;
-            if bytes.len() > 4 * 1024 * 1024 {
-                return Err("Release metadata exceeds the size limit".into());
-            }
-            let input: Value = serde_json::from_slice(&bytes).map_err(error)?;
-            let releases = normalize(&input, env!("CARGO_PKG_VERSION"))?;
-            Ok(
-                json!({"releases":releases,"lastChecked":now(),"cached":false,"source":"GitHub published releases","installationAuthority":false}),
-            )
-        })();
-        match fetched {
+        match fetch() {
             Ok(value) => {
                 self.save_settings(&json!({"releaseHistoryCache":value}))?;
                 Ok(value)
             }
-            Err(reason) => {
-                let mut result = if cached.is_object() {
-                    cached
-                } else {
-                    json!({"releases":[],"lastChecked":null})
-                };
-                result["cached"] = json!(true);
-                result["error"] = json!(reason);
-                Ok(result)
-            }
+            Err(reason) => Ok(current_labels(cached_result(cached, reason))),
         }
     }
 }
@@ -94,6 +133,17 @@ use std::io::Read;
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn unavailable_history_retains_cache_without_turning_it_into_an_rpc_error() {
+        let cache = json!({"releases":[{"version":env!("CARGO_PKG_VERSION"),"current":false,"newer":true}],"lastChecked":"2026-10-01T00:00:00Z"});
+        let result = current_labels(cached_result(cache, "Connection unavailable".into()));
+        assert_eq!(result["cached"], true);
+        assert_eq!(result["lastChecked"], "2026-10-01T00:00:00Z");
+        assert_eq!(result["releases"][0]["current"], true);
+        assert_eq!(result["releases"][0]["newer"], false);
+        assert!(result.get("error").is_none());
+        assert_eq!(result["warning"], "Connection unavailable");
+    }
     #[test]
     fn published_versions_are_semantic_and_ci_artifacts_are_not_releases() {
         let v = normalize(

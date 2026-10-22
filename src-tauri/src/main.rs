@@ -45,6 +45,9 @@ async fn atlas_call(
     let atlas = state.0.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let payload = payload.unwrap_or_else(|| json!({}));
+        if method == "releases.history" {
+            return atlas_core::releases::query(&atlas, &payload);
+        }
         if method == "ai.extract" {
             let settings = atlas
                 .lock()
