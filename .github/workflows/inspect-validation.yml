@@ -22,7 +22,13 @@ jobs:
           ATLAS_BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
           python3 - <<'PY'
-          import os, subprocess, json, hashlib, zipfile, io, re
+          import os, subprocess, json, hashlib, zipfile, io, re, sys, traceback
+          def report_error(kind, value, tb):
+              message = ''.join(traceback.format_exception_only(kind, value)).strip()
+              message = re.sub(r'https?://[^\s]+', '[URL redacted]', message)
+              message = message.replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+              print(f'::error title=Report inspection failure::{message}', flush=True)
+          sys.excepthook = report_error
           artifact = os.environ['ATLAS_ARTIFACT_ID']
           if not artifact:
               listing = json.loads(subprocess.check_output(['gh', 'api', f"repos/{os.environ['ATLAS_REPOSITORY']}/actions/artifacts?name=atlas-x86_64-pc-windows-msvc&per_page=10"]))

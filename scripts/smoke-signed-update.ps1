@@ -42,6 +42,7 @@ try {
     $env:TAURI_SIGNING_PRIVATE_KEY=Join-Path $fixture 'update.key'
     $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD=''
     $env:ATLAS_UPDATE_TEST_CA_PEM=Get-Content (Join-Path $fixture 'ca.pem') -Raw
+    $report.stage='Build disposable signed installer'
     Run-Checked 'node' @('scripts/build-desktop.mjs','--target','x86_64-pc-windows-msvc','--bundles','nsis','--signed','--update-smoke')
     $baseline=Join-Path $fixture 'baseline.exe'
     Copy-Item -LiteralPath 'target/x86_64-pc-windows-msvc/release/bundle/nsis/Birthright Atlas_0.3.0_x64-setup.exe' -Destination $baseline
@@ -52,9 +53,10 @@ try {
         [IO.File]::WriteAllText($p,($value|ConvertTo-Json -Depth 100))
     }
     $cargo=Join-Path $repository 'Cargo.toml';[IO.File]::WriteAllText($cargo,([IO.File]::ReadAllText($cargo).Replace('version = "0.3.0"','version = "0.3.1-update-test.1"')))
-    $lock=Join-Path $repository 'Cargo.lock';$content=[IO.File]::ReadAllText($lock)
+    $lock=Join-Path $repository 'Cargo.lock';$content=[IO.File]::ReadAllText($lock).Replace("`r`n","`n")
     foreach($name in @('atlas-core','atlas-host','atlas-desktop')){$content=$content.Replace("name = `"$name`"`nversion = `"0.3.0`"","name = `"$name`"`nversion = `"0.3.1-update-test.1`"")}
     [IO.File]::WriteAllText($lock,$content)
+    $report.stage='Build signed target 0.3.1-update-test.1'
     Run-Checked 'node' @('scripts/build-desktop.mjs','--target','x86_64-pc-windows-msvc','--bundles','nsis','--signed','--update-smoke')
     $target='target/x86_64-pc-windows-msvc/release/bundle/nsis/Birthright Atlas_0.3.1-update-test.1_x64-setup.exe'
     Copy-Item -LiteralPath $target -Destination (Join-Path $fixture 'update.exe')
@@ -89,7 +91,10 @@ try {
     Copy-Item (Join-Path $DataDirectory 'controlled-update-progress.jsonl') (Join-Path $repository 'release/windows-x86_64/controlled-update-progress.jsonl')
     Write-Host '::notice title=Controlled signed update::Passed older-version, wrong-platform, invalid-signature, interrupted-download, actual signed NSIS installation/restart and populated-data retention tests. Disposable test credentials only.'
 } catch {
-    $report.status='failed';$report.error=$_.Exception.Message;throw
+    $report.status='failed';$report.error=$_.Exception.Message
+    $diagnostic=($_.Exception.Message -replace '%','%25' -replace "`r",'%0D' -replace "`n",'%0A')
+    Write-Host "::error title=Controlled update failure::$($report.stage): $diagnostic"
+    throw
 } finally {
     foreach($file in $originals.Keys){[IO.File]::WriteAllBytes((Join-Path $repository $file),$originals[$file])}
     foreach($name in $variables){[Environment]::SetEnvironmentVariable($name,$savedEnvironment[$name])}
