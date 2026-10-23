@@ -1,0 +1,36 @@
+{
+  "version": "0.4.0",
+  "source": "401cc6d6b746fc4bfbab327b57b200bef563d1a5",
+  "package": "Birthright-Atlas_0.4.0_linux_x86_64.AppImage",
+  "sha256": "93207a21698773a196548aacc54db75840a38ef631259a9eb5f8e909384d8e53",
+  "launchMethod": "Extracted final AppImage, launched its AppRun in verified SDK namespace",
+  "nativeWindowLaunches": 3,
+  "cleanWindowCloses": 3,
+  "exitCodes": [
+    0,
+    0,
+    0
+  ],
+  "originalV03RecordsUnchanged": 6,
+  "documentsUnchanged": 1,
+  "schemaBefore": 4,
+  "schemaAfter": 5,
+  "preMigrationBackupRetained": true,
+  "integrity": "ok",
+  "recordsVersionsHistorySettingsAndAccountingRetainedExactly": true,
+  "originalConversationAndNotificationsRetainedExactlyAfterFirstLaunch": true,
+  "questionSentViaNativeUI": "Am I prepared for my next trip?",
+  "orderedMessagesAndNotificationStateRetainedExactlyAfterRestart": true,
+  "nativeViewsInspected": [
+    "Calendar",
+    "Booking Import Center",
+    "Trip Readiness",
+    "Assistant readiness response after restart"
+  ],
+  "webkitSandbox": "enabled; no disabling flags or variables used",
+  "environment": "Debian 13, Xvfb and read-only GTK/WebKit SDK namespace",
+  "limitations": [
+    "Local SDK package smoke does not establish older Linux distribution compatibility",
+    "Deb package installation not tested"
+  ]
+}

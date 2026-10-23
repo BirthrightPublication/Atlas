@@ -29,8 +29,12 @@ npm run build
 cargo test --workspace --locked
 cargo build --locked -p atlas-host
 npm run test:e2e
-node --test scripts/release.test.mjs tests/money-input.test.mjs scripts/update-test-feed.test.mjs
+node --test scripts/release.test.mjs tests/money-input.test.mjs
 ```
+
+The Windows updater fixture additionally runs
+`node --test scripts/update-test-feed.test.mjs` on the Windows CI runner. It
+requires OpenSSL and is also verified in the prepared Linux workspace.
 
 Tests use temporary data directories. Keep live account, physical device,
 OS installation and signing checks distinct from fixture/browser tests. Update

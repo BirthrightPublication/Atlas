@@ -3,9 +3,9 @@
 This document distinguishes source implementation from runtime and release
 validation. Checks used the Linux cloud workspace and native CI runners.
 
-Version 0.4.0 preserves the approved neutral theme and bottom dock while making
-Settings a full page and adding a shared nonmodal utility panel. Assistant chats
-and actionable notification state persist in schema 4. Numbers use local Times
+Version 0.4.0 preserves the approved neutral theme, bottom dock, full-page
+Settings and shared nonmodal utility panel. Assistant chats and actionable
+notification state persist in schema 5. Numbers use local Times
 New Roman, falling back to Liberation Serif/Times when it is unavailable.
 See [v0.4 validation](VALIDATION-v0.4.md) for current evidence; the
 [v0.2](VALIDATION-v0.2.md) and [v0.1](VALIDATION.md) reports remain historical.
@@ -24,9 +24,9 @@ See [v0.4 validation](VALIDATION-v0.4.md) for current evidence; the
 | Recurrence                  | Daily/weekly/monthly, interval, until, exceptions and per-occurrence completion                                                            | Expansion and local-time tests pass; advanced RRULE components explicitly rejected                                                       |
 | Local AI                    | Optional supervised verified runtime, pinned artifact installer, one job, caps/cancel/idle release, schema/evidence checks                 | Official Qwen metadata/licenses and llama.cpp archive verified; model CDN blocked, so no model inference or CPU benchmark claimed        |
 | Companion                   | Authenticated pairing/revocation, limited services, IndexedDB snapshot/queue, version conflicts, opt-in documents                          | Host security and real Chromium offline tests pass; trusted private HTTPS and physical iPhone unverified                                 |
-| Desktop                     | Tauri native IPC/window, OS notifications, system-browser links, managed companion host                                                    | v0.3 Linux packaged launches retained migrated records and reopened a saved chat; Windows NSIS installation and populated manual upgrade passed |
-| Releases                    | Windows NSIS, Linux AppImage/deb and macOS build pipelines; exact artifact metadata                                                        | Current platform results and installer digests are recorded in the v0.3 validation report; macOS installation unverified                 |
-| Updates                     | Compiled key + HTTPS feed, real progress, backup, signature/version/target verification, install/restart                                   | See v0.3 controlled native installation evidence; owner production signing/feed absent                                                   |
+| Desktop                     | Tauri native IPC/window, OS notifications, system-browser links, managed companion host                                                    | v0.4 Linux packaged launches retained migrated v0.3 records and reopened a readiness conversation; Windows NSIS installation, v0.3 upgrade and signed-test restart passed |
+| Releases                    | Windows NSIS, Linux AppImage/deb and macOS build pipelines; exact artifact metadata                                                        | Current platform results and installer digests are recorded in the v0.4 validation report; macOS installation unverified                 |
+| Updates                     | Compiled key + HTTPS feed, real progress, backup, signature/version/target verification, install/restart                                   | See current v0.4 controlled native installation evidence; owner production signing/feed absent                                                   |
 | Assistant and notifications | Local chat sessions, contextual deterministic answers, safe navigation, durable read/dismiss state                                         | Real service/restart and browser checks; optional model inference remains separately unverified                                          |
 | Travel planning             | Night gaps, tentative drafts, date-line duration, workspace evidence, alternate hours/commute, immutable scenarios                         | Real core service checks; no live route or venue information                                                                             |
 
@@ -41,7 +41,7 @@ Release history comes only from published GitHub releases, with a local cache.
 The installer remains authorized exclusively by the compiled key and HTTPS
 Tauri update feed. Actual transfer bytes and verification phases drive progress.
 
-The current test and platform results are tracked in
+The historical v0.3 test and platform results are tracked in
 [the v0.3 report](VALIDATION-v0.3.md). A defined workflow is not proof of an
 installed update. Disposable update-test keys do not establish production
 signing. No live prices, availability, routes or workspace evidence are invented.
