@@ -18,7 +18,7 @@ $fixture=Join-Path $TestRoot 'signed-update-fixture'
 if(Test-Path $fixture){throw 'Controlled fixture directory already exists.'}
 $originals=@{}
 foreach($file in @('Cargo.toml','Cargo.lock','package.json','package-lock.json','src-tauri/tauri.conf.json')) { $originals[$file]=[IO.File]::ReadAllBytes((Join-Path $repository $file)) }
-$variables=@('TAURI_SIGNING_PRIVATE_KEY','TAURI_SIGNING_PRIVATE_KEY_PASSWORD','ATLAS_UPDATE_PUBLIC_KEY','ATLAS_UPDATE_ENDPOINT','ATLAS_UPDATE_TEST_CA_PEM','ATLAS_TEST_UPDATE_CASE')
+$variables=@('TAURI_SIGNING_PRIVATE_KEY','TAURI_SIGNING_PRIVATE_KEY_PASSWORD','ATLAS_UPDATE_PUBLIC_KEY','ATLAS_UPDATE_ENDPOINT','ATLAS_UPDATE_TEST_CA_PEM')
 $savedEnvironment=@{}
 foreach($name in $variables){$savedEnvironment[$name]=[Environment]::GetEnvironmentVariable($name)}
 $server=$null
@@ -66,18 +66,24 @@ try {
     if(-not $install.WaitForExit(180000) -or $install.ExitCode -ne 0){throw 'Controlled baseline install failed.'}
     $snapshot=Join-Path $fixture 'before.json'
     foreach($case in @('older','wrong-platform','bad-signature','interrupted','valid')) {
+        $report.stage="Run controlled case $case"
         if($case -eq 'valid') {
     Run-Checked 'node' @('scripts/check-upgrade.mjs','capture',(Join-Path $InstallDirectory 'atlas-host.exe'),$DataDirectory,$snapshot)
         }
         [IO.File]::WriteAllText((Join-Path $fixture 'mode.txt'),$case)
-        $env:ATLAS_TEST_UPDATE_CASE=$case
-        $process=Start-Owned (Join-Path $InstallDirectory 'atlas.exe') @()
+        # Tauri forwards current arguments to NSIS /ARGS. RunAsUser may discard
+        # runner environment variables when restarting as the desktop user.
+        $process=Start-Owned (Join-Path $InstallDirectory 'atlas.exe') @("--atlas-update-test=$case")
         if(-not $process.WaitForExit(120000) -or $process.ExitCode -ne 0){throw "Controlled update case $case failed or timed out."}
         $resultPath=Join-Path $DataDirectory "controlled-update-$case.json"
         if($case -eq 'valid') {
             $marker=Join-Path $DataDirectory 'controlled-update-restarted.json'
             for($attempt=0;$attempt -lt 240 -and -not(Test-Path $resultPath);$attempt++){Start-Sleep -Milliseconds 500}
-            if(-not(Test-Path $marker)){throw 'The installed signed update did not restart into its target executable.'}
+            if(-not(Test-Path $marker)){
+                $installedVersion=[Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $InstallDirectory 'atlas.exe')).ProductVersion
+                $detail=if(Test-Path $resultPath){(Get-Content $resultPath -Raw|ConvertFrom-Json).error}else{'No restarted test report'}
+                throw "The installed signed update did not confirm restart. Installed version: $installedVersion. $detail"
+            }
             $restarted=Get-Content $marker -Raw|ConvertFrom-Json
             if($restarted.version -ne '0.3.1-update-test.1' -or -not $restarted.nativeRestart){throw 'Signed update restarted the wrong version.'}
             $report.nativeRestart=$true

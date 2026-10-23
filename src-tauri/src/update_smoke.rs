@@ -5,12 +5,13 @@ use tauri::Manager;
 use tauri_plugin_updater::UpdaterBuilder;
 
 fn root(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    if std::env::var("GITHUB_ACTIONS").as_deref() != Ok("true") {
+    // NSIS RunAsUser can create a fresh user environment after installation.
+    // These test-only binaries retain the build runner's exact temporary root.
+    if option_env!("GITHUB_ACTIONS") != Some("true") {
         return Err("Controlled updater tests require a disposable CI runner".into());
     }
-    let temp =
-        std::fs::canonicalize(std::env::var("RUNNER_TEMP").map_err(|_| "RUNNER_TEMP missing")?)
-            .map_err(|_| "Invalid runner temp")?;
+    let temp = std::fs::canonicalize(option_env!("RUNNER_TEMP").ok_or("RUNNER_TEMP missing")?)
+        .map_err(|_| "Invalid runner temp")?;
     let data = std::fs::canonicalize(
         app.path()
             .app_data_dir()
@@ -21,6 +22,17 @@ fn root(app: &tauri::AppHandle) -> Result<PathBuf, String> {
         return Err("Refusing to test updates against a non-temporary profile".into());
     }
     Ok(data)
+}
+
+fn test_case() -> Option<String> {
+    std::env::args()
+        .find_map(|arg| arg.strip_prefix("--atlas-update-test=").map(str::to_owned))
+        .filter(|case| {
+            matches!(
+                case.as_str(),
+                "older" | "wrong-platform" | "bad-signature" | "interrupted" | "valid"
+            )
+        })
 }
 
 pub fn trusted_test_client(builder: UpdaterBuilder) -> Result<UpdaterBuilder, String> {
@@ -47,16 +59,12 @@ pub fn record_progress(app: &tauri::AppHandle, p: &Value) {
         .append(true)
         .open(root.join("controlled-update-progress.jsonl"))
     {
-        let _ = writeln!(
-            file,
-            "{}",
-            json!({"case":std::env::var("ATLAS_TEST_UPDATE_CASE").ok(),"progress":p})
-        );
+        let _ = writeln!(file, "{}", json!({"case":test_case(),"progress":p}));
     }
 }
 
 pub fn start(app: tauri::AppHandle) {
-    let Ok(case) = std::env::var("ATLAS_TEST_UPDATE_CASE") else {
+    let Some(case) = test_case() else {
         return;
     };
     tauri::async_runtime::spawn(async move {
