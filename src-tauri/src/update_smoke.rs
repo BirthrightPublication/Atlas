@@ -135,6 +135,10 @@ async fn run(app: &tauri::AppHandle, case: &str) -> Result<(), String> {
             "companion.start",
             &json!({"origin":"https://localhost"}),
         )?;
+        // A fresh host writes its device store only after a pairing mutation.
+        // Generate disposable pairing state through the real service and keep
+        // its returned credential out of reports and logs.
+        let _ = crate::companion::call(app, &companion, "companion.pair", &json!({}))?;
         std::fs::copy(
             root.join("companion-devices.json"),
             root.join("controlled-companion-before.json"),

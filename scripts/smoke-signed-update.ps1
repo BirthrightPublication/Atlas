@@ -74,8 +74,12 @@ try {
         # Tauri forwards current arguments to NSIS /ARGS. RunAsUser may discard
         # runner environment variables when restarting as the desktop user.
         $process=Start-Owned (Join-Path $InstallDirectory 'atlas.exe') @("--atlas-update-test=$case")
-        if(-not $process.WaitForExit(120000) -or $process.ExitCode -ne 0){throw "Controlled update case $case failed or timed out."}
         $resultPath=Join-Path $DataDirectory "controlled-update-$case.json"
+        if(-not $process.WaitForExit(120000)){throw "Controlled update case $case timed out before installer handoff."}
+        if($process.ExitCode -ne 0){
+            $detail=if(Test-Path $resultPath){(Get-Content $resultPath -Raw|ConvertFrom-Json).error}else{'No application test report'}
+            throw "Controlled update case $case failed (exit $($process.ExitCode)): $detail"
+        }
         if($case -eq 'valid') {
             $marker=Join-Path $DataDirectory 'controlled-update-restarted.json'
             for($attempt=0;$attempt -lt 240 -and -not(Test-Path $resultPath);$attempt++){Start-Sleep -Milliseconds 500}
