@@ -174,7 +174,7 @@ try {
         $previousLaunch = Start-InstalledAtlas 'v0.3 baseline launch'
         Close-InstalledAtlas $previousLaunch.Process 'v0.3 baseline launch'
         $previousVersion = [Diagnostics.FileVersionInfo]::GetVersionInfo($installedExecutable).ProductVersion
-        if ($previousVersion -notmatch '^0\.2\.0(?:\.|$)') { throw "The baseline executable has an unexpected version: $previousVersion" }
+        if ($previousVersion -notmatch '^0\.3\.0(?:\.|$)') { throw "The baseline executable has an unexpected version: $previousVersion" }
         $upgradeSnapshot = Join-Path $testRoot 'upgrade-before.json'
         & node (Join-Path $repository 'scripts/check-upgrade.mjs') seed (Join-Path $installDirectory 'atlas-host.exe') $databaseDirectory $upgradeSnapshot
         if ($LASTEXITCODE -ne 0) { throw 'Populating the isolated v0.3 profile failed.' }
@@ -262,7 +262,7 @@ try {
         & node (Join-Path $repository 'scripts/check-upgrade.mjs') verify (Join-Path $installDirectory 'atlas-host.exe') $databaseDirectory $upgradeSnapshot
         if ($LASTEXITCODE -ne 0) { throw 'The manual installer upgrade changed v0.3 data or accounting.' }
         $report.manualUpgrade = 'passed'
-        $report.preserved = @('records', 'stable IDs', 'versions', 'history', 'preferences', 'named presets', 'documents', 'schema', 'exact accounting')
+        $report.preserved = @('records', 'stable IDs', 'versions', 'history', 'preferences', 'named presets', 'documents', 'backed-up schema migration', 'conversations', 'notifications', 'exact accounting')
         $report.packagedServiceProbe = $true
     }
     $report.sqliteIntegrity = 'ok'
