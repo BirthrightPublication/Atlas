@@ -327,3 +327,32 @@ fn schema_four_restore_preserves_chat_notifications_documents_and_pairing() {
     assert_eq!(before, call(&mut a, "snapshot", json!({})));
     assert_eq!(chats, call(&mut a, "chat.get", json!({"id":chat["id"]})));
 }
+
+#[test]
+fn selected_revision_preview_and_cancellation_show_lost_nights_and_budget_effects() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut a = Atlas::open(dir.path()).unwrap();
+    accepted(&mut a);
+    let d=parse(&mut a,"Revised reservation\nProvider: Synthetic Stays\nReservation ID: V04-TEST\nCheck-out: 2029-01-09\nTotal: USD 1000.00");
+    let p = call(
+        &mut a,
+        "imports.preview",
+        json!({"id":d["id"],"fields":["checkOut"]}),
+    );
+    assert_eq!(p["candidate"]["totalMinor"], 90000);
+    assert!(p["gaps"]["ranges"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|g| g["start"] == "2029-01-09" && g["nights"] == 2));
+    let d = parse(
+        &mut a,
+        "Reservation cancelled\nProvider: Synthetic Stays\nReservation ID: V04-TEST",
+    );
+    let p = call(&mut a, "imports.preview", json!({"id":d["id"]}));
+    assert_eq!(
+        p["effects"]["budgetChanges"][0]["after"]["accommodationMinor"],
+        0
+    );
+    assert_eq!(p["gaps"]["ranges"][0]["nights"], 30);
+}

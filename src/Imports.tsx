@@ -307,6 +307,18 @@ function ReviewCard({
       setBusy(false);
     }
   }
+  async function chooseFields(next: string[]) {
+    setFields(next);
+    setBusy(true);
+    try {
+      setPreview(await rpc("imports.preview", { id: draft.id, fields: next }));
+      setError("");
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
   async function act(method: string, payload: any) {
     setBusy(true);
     setError("");
@@ -396,11 +408,12 @@ function ReviewCard({
                   <input
                     type="checkbox"
                     checked={fields.includes(c.field)}
+                    disabled={busy}
                     onChange={(e) =>
-                      setFields((f) =>
+                      chooseFields(
                         e.target.checked
-                          ? [...f, c.field]
-                          : f.filter((k) => k !== c.field),
+                          ? [...fields, c.field]
+                          : fields.filter((k) => k !== c.field),
                       )
                     }
                   />
@@ -458,6 +471,28 @@ function ReviewCard({
                 </li>
               ))}
             </ul>
+            {preview.effects?.budgetChanges?.map((b: any) => (
+              <p key={b.currency}>
+                Period forecast: {money(b.before.forecastMinor, b.currency)} →{" "}
+                {money(b.after.forecastMinor, b.currency)}
+              </p>
+            ))}
+            {preview.effects?.linkedRecords?.length > 0 && (
+              <>
+                <h4>Linked plans to review</h4>
+                <ul>
+                  {preview.effects.linkedRecords.map((r: any) => (
+                    <li key={r.id}>
+                      {r.name || r.kind} · {r.kind}
+                    </li>
+                  ))}
+                </ul>
+                <p className="field-help">
+                  Pending booking reminders recalculate on approval. Objectives
+                  and other confirmed segments require your review.
+                </p>
+              </>
+            )}
             {preview.history?.length > 0 && (
               <>
                 <h4>Saved revisions</h4>

@@ -481,8 +481,8 @@ impl EmailService {
         self.status()
     }
     pub fn disconnect(&self) -> Result<Value, String> {
-        self.secrets.delete()?;
         let mut state = self.state()?;
+        self.secrets.delete()?;
         state.connected = false;
         state.authorization_pending = false;
         state.cursor = Value::Null;
@@ -689,7 +689,7 @@ impl EmailService {
         s.last_error = None;
         self.persist(&s)
     }
-    fn access_token(&self, config: &Config) -> Result<String, String> {
+    fn access_token(&self, config: &Config, generation: u64) -> Result<String, String> {
         let mut credentials = self
             .secrets
             .load()?
@@ -721,7 +721,12 @@ impl EmailService {
             .map_err(|_| "Mailbox token refresh failed to reach the provider")?;
         let token = read_json_response(response)?;
         apply_token(&mut credentials, &token)?;
+        let state = self.state()?;
+        if state.generation != generation || !state.connected {
+            return Err("Mailbox disconnected during token refresh; reconnect to continue.".into());
+        }
         self.secrets.save(&credentials)?;
+        drop(state);
         credentials
             .access_token
             .ok_or_else(|| "The provider did not return an access token".into())
@@ -750,7 +755,7 @@ impl EmailService {
         let result = if config.provider == "imap" || config.provider == "proton-bridge" {
             self.sync_imap(&config, &cursor, generation)
         } else {
-            self.access_token(&config).and_then(|token| {
+            self.access_token(&config, generation).and_then(|token| {
                 if config.provider == "gmail" {
                     self.sync_gmail(&config, &token, &cursor, generation)
                 } else {

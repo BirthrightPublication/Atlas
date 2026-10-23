@@ -107,7 +107,16 @@ impl Atlas {
         }
         let before = self.get(text(&draft, "existingRecordId"))?;
         let mut candidate = before.clone().unwrap_or_else(|| json!({}));
-        merge_known(&mut candidate, &draft["record"]);
+        let mut patch = draft["record"].clone();
+        if let Some(fields) = p["fields"].as_array() {
+            if before.is_some() {
+                patch
+                    .as_object_mut()
+                    .ok_or("Draft fields missing")?
+                    .retain(|key, _| key == "kind" || fields.contains(&json!(key)));
+            }
+        }
+        merge_known(&mut candidate, &patch);
         let mut changes = vec![];
         for (field, after) in draft["record"]
             .as_object()
@@ -133,15 +142,70 @@ impl Atlas {
             .cloned()
             .collect();
         hypothetical.push(candidate.clone());
-        let effects = journey::preview(&hypothetical, &settings, &json!({"record":candidate}))
-            .unwrap_or_else(|e| json!({"needsReview":e}));
-        let day = text(&candidate, "checkIn").to_owned();
-        let end = text(&candidate, "checkOut").to_owned();
-        let gaps = if !day.is_empty() && !end.is_empty() {
-            journey::gaps(&hypothetical, &json!({"start":day,"end":end})).ok()
+        let mut effects = if text(&candidate, "status") == "cancelled" {
+            json!({"warnings":[{"message":"This booking will leave itinerary forecasts. Original payments and audit history remain."}]})
         } else {
-            None
+            journey::preview(&hypothetical, &settings, &json!({"record":candidate}))
+                .unwrap_or_else(|e| json!({"needsReview":e}))
         };
+        let variants: Vec<_> = before.iter().chain(std::iter::once(&candidate)).collect();
+        let starts: Vec<_> = variants
+            .iter()
+            .filter_map(|r| {
+                if text(r, "kind") == "stay" {
+                    r["checkIn"].as_str()
+                } else {
+                    text(r, "departure").get(..10)
+                }
+            })
+            .collect();
+        let ends: Vec<_> = variants
+            .iter()
+            .filter_map(|r| {
+                if text(r, "kind") == "stay" {
+                    r["checkOut"].as_str().map(str::to_owned)
+                } else {
+                    text(r, "arrival")
+                        .get(..10)
+                        .and_then(|d| parse_date(d).ok())
+                        .map(|d| (d + Duration::days(1)).to_string())
+                }
+            })
+            .collect();
+        let mut gaps = Value::Null;
+        if let (Some(day), Some(end)) = (starts.iter().min(), ends.iter().max()) {
+            let request = json!({"start":day,"end":end});
+            gaps = journey::gaps(&hypothetical, &request).unwrap_or(Value::Null);
+            let mut currencies: Vec<_> = variants
+                .iter()
+                .filter_map(|r| r["currency"].as_str())
+                .collect();
+            currencies.sort();
+            currencies.dedup();
+            let mut budgets = vec![];
+            for currency in currencies {
+                let request = json!({"start":day,"end":end,"currency":currency});
+                if let (Ok(before), Ok(after)) = (
+                    money::period_summary(&all, &settings, &request),
+                    money::period_summary(&hypothetical, &settings, &request),
+                ) {
+                    budgets.push(json!({"currency":currency,"before":before,"after":after}));
+                }
+            }
+            effects["budgetChanges"] = json!(budgets);
+        }
+        effects["linkedRecords"] = json!(all
+            .iter()
+            .filter(|r| before.as_ref().is_some_and(|old| [
+                "stayId",
+                "originStayId",
+                "destinationStayId",
+                "bookingId"
+            ]
+            .iter()
+            .any(|key| r[*key] == old["id"])))
+            .map(|r| json!({"id":r["id"],"name":r["name"],"kind":r["kind"]}))
+            .collect::<Vec<_>>());
         Ok(
             json!({"draft":draft,"before":before,"candidate":candidate,"changes":changes,"effects":effects,"gaps":gaps,"history":before.as_ref().map(|b|self.history(text(b,"id"))).transpose()?,"notice":"Only selected known fields replace saved facts. Review timing, work, gaps, objectives, money and linked reminders before approval."}),
         )

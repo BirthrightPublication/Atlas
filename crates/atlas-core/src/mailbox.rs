@@ -217,3 +217,49 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod responsiveness {
+    use super::*;
+    use std::{
+        net::TcpListener,
+        sync::{mpsc, Arc},
+        thread,
+        time::Duration,
+    };
+    #[test]
+    fn a_slow_tls_probe_does_not_hold_the_application_data_lock() {
+        let root = tempfile::tempdir().unwrap();
+        let mail = tempfile::tempdir().unwrap();
+        let service = crate::email::fixture_service(mail.path());
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        service.configure(&json!({"provider":"imap","host":"127.0.0.1","port":port,"username":"fixture","password":"synthetic-only","tlsMode":"tls"})).unwrap();
+        let (accepted, received) = mpsc::channel();
+        let (release, wait) = mpsc::channel();
+        let server = thread::spawn(move || {
+            let (socket, _) = listener.accept().unwrap();
+            accepted.send(()).unwrap();
+            let _ = wait.recv_timeout(Duration::from_secs(5));
+            drop(socket);
+        });
+        let mut atlas = Atlas::open(root.path()).unwrap();
+        atlas.emails.insert("default".into(), service);
+        let atlas = Arc::new(Mutex::new(atlas));
+        let worker = atlas.clone();
+        let probe = thread::spawn(move || query(&worker, "email.connect", &json!({})));
+        received.recv_timeout(Duration::from_secs(5)).unwrap();
+        assert!(atlas
+            .try_lock()
+            .unwrap()
+            .call("snapshot", json!({}))
+            .is_ok());
+        release.send(()).unwrap();
+        server.join().unwrap();
+        assert!(probe.join().unwrap().is_err());
+        assert_eq!(
+            query(&atlas, "email.status", &json!({})).unwrap()["connected"],
+            false
+        );
+    }
+}

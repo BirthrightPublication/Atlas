@@ -10,6 +10,10 @@ permissions:
   contents: read
   actions: read
 
+concurrency:
+  group: atlas-build-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   desktop:
     strategy:
@@ -73,6 +77,10 @@ jobs:
           $config = Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
           $installer = Join-Path $PWD "release/windows-x86_64/Birthright-Atlas_$($config.version)_windows_x86_64-setup.exe"
           ./scripts/smoke-windows.ps1 -InstallerPath $installer -PreviousInstallerPath '${{ steps.previous.outputs.installer }}' -PreviousInstallerSha256 '${{ steps.previous.outputs.sha256 }}' -ControlledUpdate
+      - name: Report artifact hashes and synthetic native validation
+        if: ${{ always() && steps.stage.outcome == 'success' }}
+        shell: bash
+        run: node scripts/report-validation.mjs
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: ${{ always() && steps.stage.outcome == 'success' }}
         with:
