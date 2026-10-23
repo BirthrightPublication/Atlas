@@ -45,6 +45,12 @@ async fn atlas_call(
     let atlas = state.0.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let payload = payload.unwrap_or_else(|| json!({}));
+        if ["imports.parse", "imports.ai"].contains(&method.as_str()) {
+            return atlas_core::imports::query(&atlas, &method, &payload);
+        }
+        if method.starts_with("email.") {
+            return atlas_core::mailbox::query(&atlas, &method, &payload);
+        }
         if method == "releases.history" {
             return atlas_core::releases::query(&atlas, &payload);
         }
@@ -126,16 +132,14 @@ fn main() {
                     }
                     if ticks % 2 == 0 {
                         let service = state.0.clone();
-                        let synced = tauri::async_runtime::spawn_blocking(move || {
-                            let mut service = service
-                                .lock()
-                                .map_err(|_| "Application service unavailable".to_string())?;
-                            service.call("email.auto_sync", json!({}))
-                        })
-                        .await;
-                        if let Ok(Ok(result)) = synced {
-                            let _ = handle.emit("atlas:email-synced", result);
-                        }
+                        let email_handle = handle.clone();
+                        tauri::async_runtime::spawn_blocking(move || {
+                            if let Ok(result) =
+                                atlas_core::mailbox::query(&service, "email.auto_sync", &json!({}))
+                            {
+                                let _ = email_handle.emit("atlas:email-synced", result);
+                            }
+                        });
                     }
                     ticks = ticks.wrapping_add(1);
                     tokio::time::sleep(Duration::from_secs(30)).await;

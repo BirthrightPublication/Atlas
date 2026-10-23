@@ -12,7 +12,13 @@ const MAX_FILE: usize = 16 * 1024 * 1024;
 /// Conservative mailbox gate. False means no review draft or retained source is
 /// created. This is a content filter, not a limitation on the OAuth mail grant.
 pub fn is_booking_message(text: &str, format: &str) -> bool {
-    if text.len() > MAX_TEXT {
+    if text.len()
+        > if format.eq_ignore_ascii_case("eml") {
+            MAX_FILE
+        } else {
+            MAX_TEXT
+        }
+    {
         return false;
     }
     if format.eq_ignore_ascii_case("eml") {
@@ -57,7 +63,13 @@ fn booking_signals(text: &str) -> bool {
 }
 
 pub fn parse(text: &str, format: &str) -> Result<Vec<Value>, String> {
-    if text.len() > MAX_TEXT {
+    if text.len()
+        > if format.eq_ignore_ascii_case("eml") {
+            MAX_FILE
+        } else {
+            MAX_TEXT
+        }
+    {
         return Err("Import text exceeds the 512 KiB limit".into());
     }
     if text.trim().is_empty() {
@@ -218,7 +230,7 @@ fn parse_booking(text: &str) -> Result<Value, String> {
     );
     let confirmed = rx(r"(?i)\b(?:booking|reservation|stay|flight|ticket)\s+(?:is\s+)?confirmed\b|\b(?:booking|reservation|flight) confirmation\b|(?m)^status:\s*confirmed\s*$").is_match(text);
     let cancelled = rx(r"(?i)\b(?:booking|reservation|stay|flight)\s+(?:has been |is )?cancel(?:led|ed)\b|(?m)^status:\s*cancel(?:led|ed)\s*$").is_match(text);
-    let refunded = rx(r"(?i)\brefund(?:ed| issued| processed)\b").is_match(text);
+    let refunded = rx(r"(?i)\brefund(?:ed)?\b").is_match(text);
     let promotional =
         rx(r"(?i)\b(?:promo code|special offer|book now|sale ends|exclusive deal|save up to)\b")
             .is_match(text);
@@ -256,14 +268,24 @@ fn parse_booking(text: &str) -> Result<Value, String> {
     record.insert("reservationId".into(), json!(reservation));
     record.insert(
         "status".into(),
-        json!(if cancelled {
-            "cancelled"
+        if cancelled {
+            json!("cancelled")
         } else if confirmed && !promotional {
-            "confirmed"
+            json!("confirmed")
+        } else if promotional {
+            json!("tentative")
         } else {
-            "tentative"
-        }),
+            Value::Null
+        },
     );
+    if confirmed || cancelled {
+        if let Some(line) = text
+            .lines()
+            .find(|l| rx(r"(?i)confirmation|confirmed|cancelled|canceled").is_match(l))
+        {
+            evidence.insert("status".into(), json!(line.trim()));
+        }
+    }
     record.insert("context".into(), Value::Null);
     let name = take_field(
         text,
@@ -343,8 +365,144 @@ fn parse_booking(text: &str) -> Result<Value, String> {
         }
         record.insert(key.into(), json!(value));
     }
-    if refunded {
-        issues.push("Refund notice: verify the actual amount and add a linked refund payment; this draft does not invent a settled payment.".into());
+    for (key, aliases) in [
+        ("guests", vec!["guests", "guest count"]),
+        (
+            "instructions",
+            vec![
+                "check in instructions",
+                "check-in instructions",
+                "instructions",
+            ],
+        ),
+        (
+            "cancellationPolicy",
+            vec!["cancellation policy", "cancellation terms"],
+        ),
+        (
+            "flightNumber",
+            vec!["flight number", "train number", "service number"],
+        ),
+        ("terminal", vec!["terminal", "departure terminal"]),
+        ("arrivalTerminal", vec!["arrival terminal"]),
+        ("platform", vec!["platform"]),
+        ("baggage", vec!["baggage", "baggage allowance"]),
+        ("connections", vec!["connections", "transfers"]),
+        ("ticketStatus", vec!["ticket status"]),
+        ("ticketUrl", vec!["ticket url"]),
+        ("rulesUrl", vec!["rules url"]),
+        ("cancellationUrl", vec!["cancellation url"]),
+    ] {
+        if let Some(value) = take_field(text, key, &aliases, &mut evidence) {
+            if key.ends_with("Url") && !safe_url(&value) {
+                issues.push(format!("{key} is not a safe HTTP(S) link."));
+            } else {
+                record.insert(key.into(), json!(value));
+            }
+        }
+    }
+    for (key, aliases) in [
+        ("latitude", vec!["latitude"]),
+        ("longitude", vec!["longitude"]),
+    ] {
+        if let Some(value) = take_field(text, key, &aliases, &mut evidence) {
+            if let Ok(n) = value.parse::<f64>() {
+                let bound = if key == "latitude" { 90.0 } else { 180.0 };
+                if n.is_finite() && n.abs() <= bound {
+                    record.insert(key.into(), json!(n));
+                } else {
+                    issues.push(format!("Invalid {key}."));
+                }
+            }
+        }
+    }
+    for (key, aliases) in [
+        ("taxesMinor", vec!["taxes", "tax"]),
+        ("feesMinor", vec!["fees", "mandatory fees"]),
+        ("depositMinor", vec!["deposit", "refundable deposit"]),
+    ] {
+        if let Some(value) = take_field(text, key, &aliases, &mut evidence) {
+            match parse_money(&value, record.get("currency").and_then(Value::as_str)) {
+                Ok((currency, amount))
+                    if record.get("currency").and_then(Value::as_str)
+                        == Some(currency.as_str()) =>
+                {
+                    record.insert(key.into(), json!(amount));
+                }
+                _ => issues.push(format!(
+                    "{key} currency or amount needs review; it was not added to the total."
+                )),
+            }
+        }
+    }
+    let zone = record
+        .get("timezone")
+        .or_else(|| record.get("departureTimezone"))
+        .and_then(Value::as_str)
+        .and_then(|z| z.parse::<Tz>().ok());
+    for (key, aliases) in [
+        (
+            "cancellationAt",
+            vec!["cancellation deadline", "free cancellation until"],
+        ),
+        ("paymentDueAt", vec!["payment due", "payment due at"]),
+    ] {
+        if let Some(raw) = take_field(text, key, &aliases, &mut evidence) {
+            if let Some(instant) = parse_instant(&raw, zone) {
+                record.insert(key.into(), json!(instant));
+            } else {
+                issues.push(format!("{key} requires an unambiguous time and timezone."));
+            }
+        }
+    }
+    let refund = if refunded {
+        let raw = take_field(
+            text,
+            "refund.amountMinor",
+            &["refund amount", "refund total"],
+            &mut evidence,
+        );
+        let parsed = raw
+            .as_deref()
+            .and_then(|v| parse_money(v, record.get("currency").and_then(Value::as_str)).ok());
+        let date = take_field(
+            text,
+            "refund.date",
+            &[
+                "refund date",
+                "refund expected date",
+                "refund received date",
+            ],
+            &mut evidence,
+        )
+        .and_then(|v| parse_date(&v))
+        .map(|v| v.to_string());
+        let received = rx(r"(?im)^refund status:\s*received\s*$|\brefund (?:has been )?received\b")
+            .is_match(text);
+        let expected =
+            rx(r"(?i)\bexpected\b|\bwill be refunded\b|\brefund (?:issued|processed|approved)\b")
+                .is_match(text);
+        issues.push("Refund notice requires review. Only an explicitly recorded receipt changes cash flow; a promise is not settled money.".into());
+        Some(
+            json!({"state":if received{"received"}else if expected{"expected"}else{"announced"},"currency":parsed.as_ref().map(|p|&p.0),"amountMinor":parsed.map(|p|p.1),"date":date}),
+        )
+    } else {
+        None
+    };
+    let mut field_states = Map::new();
+    for (key, value) in &record {
+        field_states.insert(
+            key.clone(),
+            json!(if value.is_null() {
+                "missing"
+            } else if evidence.contains_key(key) {
+                "sourced"
+            } else if ["mode", "kind", "overnight"].contains(&key.as_str()) {
+                "inferred"
+            } else {
+                "review"
+            }),
+        );
     }
     let identity = if let Some(id) = reservation.as_deref() {
         format!(
@@ -362,7 +520,7 @@ fn parse_booking(text: &str) -> Result<Value, String> {
         )
     };
     Ok(
-        json!({"record":record, "issues":issues, "evidence":evidence, "fingerprint":hash(&identity),
+        json!({"record":record, "issues":issues, "evidence":evidence, "fieldStates":field_states, "refund":refund, "fingerprint":hash(&identity),
         "sourceText":text.trim(), "action":if cancelled {"cancel"} else if refunded {"refund"} else if lower.contains("revised") || lower.contains("updated confirmation") {"update"} else {"create"}}),
     )
 }
@@ -447,6 +605,10 @@ fn parse_stay(
         ),
         ("kitchen", vec!["kitchen"]),
         ("internet", vec!["internet", "wifi", "wi-fi"]),
+        ("private", vec!["private", "entire property"]),
+        ("scenic", vec!["scenic", "scenic view"]),
+        ("quiet", vec!["quiet"]),
+        ("power", vec!["power"]),
     ] {
         let raw = take_field(text, key, &aliases, evidence);
         let value = raw
@@ -1204,4 +1366,32 @@ mod tests {
         assert_eq!(d[0]["record"]["kind"], "place");
         assert!(d[0]["record"].get("totalMinor").is_none());
     }
+}
+
+/// Parse untrusted text on the transport worker without holding the application lock.
+pub fn query(
+    atlas: &std::sync::Mutex<crate::Atlas>,
+    method: &str,
+    p: &Value,
+) -> Result<Value, String> {
+    let text = crate::string(p, "text");
+    if text.len() > MAX_FILE {
+        return Err("Import exceeds the bounded message limit".into());
+    }
+    let (parsed, metadata) = if method == "imports.ai" {
+        let settings = atlas
+            .lock()
+            .map_err(|_| "Application service unavailable")?
+            .settings()?;
+        (
+            vec![crate::ai::extract(text, &settings)?],
+            Some(json!({"method":"local_ai","reviewRequired":true})),
+        )
+    } else {
+        (parse(text, p["format"].as_str().unwrap_or("text"))?, None)
+    };
+    atlas
+        .lock()
+        .map_err(|_| "Application service unavailable")?
+        .persist_drafts(parsed, text.as_bytes(), metadata.as_ref())
 }

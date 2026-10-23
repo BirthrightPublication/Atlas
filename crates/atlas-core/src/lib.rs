@@ -1,8 +1,10 @@
 //! Shared, offline-first application services. All transports call this boundary.
 pub mod ai;
+mod automation;
 pub mod email;
 pub mod imports;
 pub mod journey;
+pub mod mailbox;
 pub mod money;
 mod panels;
 pub mod planning;
@@ -21,7 +23,7 @@ use std::{
 };
 use uuid::Uuid;
 
-const SCHEMA_VERSION: i64 = 4;
+const SCHEMA_VERSION: i64 = 5;
 const MAX_FILE: usize = 20 * 1024 * 1024;
 const KINDS: &[&str] = &[
     "trip",
@@ -40,12 +42,13 @@ const KINDS: &[&str] = &[
     "source",
     "draft",
     "connection",
+    "refund",
 ];
 
 pub struct Atlas {
     db: Connection,
     data_dir: PathBuf,
-    email: email::EmailService,
+    emails: std::collections::BTreeMap<String, email::EmailService>,
 }
 
 fn error(e: impl std::fmt::Display) -> String {
@@ -76,7 +79,7 @@ fn migrate(db: &Connection) -> Result<(), String> {
                 WHERE kind IN ('stay','transport') AND json_type(body,'$.reservationId')='text' AND length(json_extract(body,'$.reservationId'))>0;
             ").map_err(error)?;
     db.execute_batch(panels::MIGRATION).map_err(error)?;
-    db.execute_batch("PRAGMA user_version=4; COMMIT;")
+    db.execute_batch("CREATE INDEX IF NOT EXISTS record_status ON records(kind,json_extract(body,'$.status')); PRAGMA user_version=5; COMMIT;")
         .map_err(error)?;
     Ok(())
 }
@@ -115,11 +118,11 @@ impl Atlas {
             .map_err(error)?;
         }
         migrate(&db)?;
-        let email = email::EmailService::new(&data_dir)?;
+        let emails = mailbox::load_accounts(&data_dir)?;
         Ok(Self {
             db,
             data_dir,
-            email,
+            emails,
         })
     }
 
@@ -176,6 +179,15 @@ impl Atlas {
             ),
             "imports.file" => self.import_file(&payload),
             "imports.accept" => self.accept_import(&payload),
+            "imports.preview"
+            | "refunds.receive"
+            | "readiness.summary"
+            | "reminders.suggestions"
+            | "reminders.adopt"
+            | "discovery.compare"
+            | "discovery.scenario"
+            | "watchlist.snapshot"
+            | "watchlist.remind" => self.automation(method, &payload),
             "imports.dismiss" => {
                 let mut draft = self.get_required(string(&payload, "id"))?;
                 if string(&draft, "kind") != "draft" {
@@ -218,24 +230,7 @@ impl Atlas {
                 &self.records(None)?,
                 &self.get_required(string(&payload, "id"))?,
             )),
-            "email.status" => self.email.status(),
-            "email.configure" => self.email.configure(&payload),
-            "email.connect" => self.email.connect(),
-            "email.pause" => self.email.pause(
-                payload
-                    .get("paused")
-                    .and_then(Value::as_bool)
-                    .unwrap_or(true),
-            ),
-            "email.disconnect" => self.email.disconnect(),
-            "email.sync" => self.sync_email(),
-            "email.auto_sync" => {
-                if self.email.should_auto_sync(300) {
-                    self.sync_email()
-                } else {
-                    Ok(json!({"skipped":true}))
-                }
-            }
+            method if method.starts_with("email.") => self.email_call(method, &payload),
             "ai.status" => Ok(ai::status(&self.settings()?)),
             "ai.extract" => ai::extract(string(&payload, "text"), &self.settings()?),
             "imports.ai" => {
@@ -321,7 +316,7 @@ impl Atlas {
             .map(|v| v["createdAt"].clone())
             .unwrap_or_else(|| json!(now()));
         record["updatedAt"] = json!(now());
-        let tx = self.db.transaction().map_err(error)?;
+        let tx = self.db.savepoint().map_err(error)?;
         let changed=tx.execute("INSERT INTO records(id,kind,version,body,updated_at) VALUES(?1,?2,?3,?4,?5) ON CONFLICT(id) DO UPDATE SET kind=excluded.kind,version=excluded.version,body=excluded.body,updated_at=excluded.updated_at WHERE records.version=?6",
             params![record_id,string(&record,"kind"),current_version+1,record.to_string(),string(&record,"updatedAt"),current_version])
             .map_err(|e|if e.to_string().contains("reservation_identity"){"A booking with this provider and reservation ID already exists. Review or update that booking.".to_owned()}else{error(e)})?;
@@ -353,6 +348,9 @@ impl Atlas {
                     self.save_record(draft, None)?;
                 }
             }
+        }
+        if ["stay", "transport"].contains(&string(&record, "kind")) {
+            self.recalculate_booking_reminders(&record)?;
         }
         Ok(record)
     }
@@ -407,7 +405,14 @@ impl Atlas {
                 return Err("Use an uppercase three-letter currency code".into());
             }
         }
-        for field in ["url", "hostUrl", "rulesUrl", "sourceUrl"] {
+        for field in [
+            "url",
+            "hostUrl",
+            "rulesUrl",
+            "sourceUrl",
+            "ticketUrl",
+            "cancellationUrl",
+        ] {
             if let Some(v) = r
                 .get(field)
                 .and_then(Value::as_str)
@@ -464,7 +469,14 @@ impl Atlas {
                 parse_date(date)?;
             }
         }
-        for key in ["dueAt", "departure", "arrival", "cancellationAt"] {
+        for key in [
+            "dueAt",
+            "departure",
+            "arrival",
+            "cancellationAt",
+            "paymentDueAt",
+            "lastCheckedAt",
+        ] {
             if let Some(t) = r.get(key).and_then(Value::as_str).filter(|s| !s.is_empty()) {
                 DateTime::parse_from_rfc3339(t)
                     .map_err(|_| format!("{key} needs a timezone-aware ISO date/time"))?;
@@ -586,6 +598,18 @@ impl Atlas {
                 }
                 if ["payment", "deposit"].contains(&string(r, "type")) && amount < 0 {
                     return Err("Payments and deposits use positive amounts".into());
+                }
+            }
+            "refund" => {
+                let booking = self.get_required(string(r, "bookingId"))?;
+                if !["stay", "transport", "objective"].contains(&string(&booking, "kind")) {
+                    return Err("Refund must link to a booking.".into());
+                }
+                if !["announced", "expected", "received"].contains(&string(r, "state")) {
+                    return Err("Invalid refund state.".into());
+                }
+                if r["amountMinor"].as_i64().is_some_and(|n| n < 0) {
+                    return Err("Refund notice amounts use positive minor units.".into());
                 }
             }
             "expense" => {
@@ -750,7 +774,7 @@ impl Atlas {
                 );
             }
         }
-        let tx = self.db.transaction().map_err(error)?;
+        let tx = self.db.savepoint().map_err(error)?;
         let deleted = tx
             .execute(
                 "DELETE FROM records WHERE id=?1 AND version=?2",
@@ -860,13 +884,53 @@ impl Atlas {
         source_bytes: &[u8],
         source_meta: Option<&Value>,
     ) -> Result<Value, String> {
+        self.db
+            .execute_batch("SAVEPOINT import_batch")
+            .map_err(error)?;
+        let result = self.persist_drafts_inner(parsed, source_bytes, source_meta);
+        match result {
+            Ok(value) => {
+                self.db
+                    .execute_batch("RELEASE import_batch")
+                    .map_err(error)?;
+                Ok(value)
+            }
+            Err(err) => {
+                let _ = self
+                    .db
+                    .execute_batch("ROLLBACK TO import_batch; RELEASE import_batch");
+                Err(err)
+            }
+        }
+    }
+    fn persist_drafts_inner(
+        &mut self,
+        parsed: Vec<Value>,
+        source_bytes: &[u8],
+        source_meta: Option<&Value>,
+    ) -> Result<Value, String> {
         if parsed.is_empty() {
             return Ok(json!([]));
         }
         let source_hash = hash(source_bytes);
         let mut out = vec![];
         for (index, mut parsed) in parsed.into_iter().enumerate() {
-            let key = format!("{source_hash}:{index}");
+            let namespace = source_meta
+                .map(|m| {
+                    format!(
+                        "{}:{}:{}:{}",
+                        string(m, "accountId"),
+                        string(m, "connectionIdentity"),
+                        string(m, "provider"),
+                        string(m, "id")
+                    )
+                })
+                .unwrap_or_default();
+            let key = if namespace == ":::" || namespace.is_empty() {
+                format!("{source_hash}:{index}")
+            } else {
+                format!("{}:{source_hash}:{index}", hash(namespace.as_bytes()))
+            };
             let prior: Option<String> = self
                 .db
                 .query_row(
@@ -899,6 +963,7 @@ impl Atlas {
             parsed["sourceHash"] = json!(source_hash);
             parsed["record"]["sourceIds"] = json!([source["id"]]);
             if let Some(existing) = self.find_booking(&parsed["record"])? {
+                parsed["record"]["kind"] = existing["kind"].clone();
                 parsed["existingRecordId"] = existing["id"].clone();
                 parsed["expectedBookingVersion"] = existing["version"].clone();
             }
@@ -923,7 +988,6 @@ impl Atlas {
                 continue;
             }
             if !reservation.is_empty()
-                && string(candidate, "kind") == string(&record, "kind")
                 && string(&record, "reservationId").eq_ignore_ascii_case(reservation)
                 && string(&record, "provider").eq_ignore_ascii_case(provider)
             {
@@ -948,6 +1012,26 @@ impl Atlas {
     }
 
     fn accept_import(&mut self, payload: &Value) -> Result<Value, String> {
+        self.db
+            .execute_batch("SAVEPOINT import_approval")
+            .map_err(error)?;
+        let result = self.accept_import_inner(payload);
+        match result {
+            Ok(value) => {
+                self.db
+                    .execute_batch("RELEASE import_approval")
+                    .map_err(error)?;
+                Ok(value)
+            }
+            Err(err) => {
+                let _ = self
+                    .db
+                    .execute_batch("ROLLBACK TO import_approval; RELEASE import_approval");
+                Err(err)
+            }
+        }
+    }
+    fn accept_import_inner(&mut self, payload: &Value) -> Result<Value, String> {
         let mut draft = self.get_required(string(payload, "id"))?;
         if string(&draft, "kind") != "draft" {
             return Err("Expected an import draft".into());
@@ -965,6 +1049,12 @@ impl Atlas {
             return Err(
                 "Review must identify a supported booking, objective, payment, or place".into(),
             );
+        }
+        if let Some(fields) = payload["fields"].as_array() {
+            let allowed: Vec<_> = fields.iter().filter_map(Value::as_str).collect();
+            if let Some(object) = record.as_object_mut() {
+                object.retain(|key, _| key == "kind" || allowed.contains(&key.as_str()));
+            }
         }
         let existing = if !string(&draft, "existingRecordId").is_empty() {
             self.get(string(&draft, "existingRecordId"))?
@@ -998,12 +1088,19 @@ impl Atlas {
             record.as_object_mut().unwrap().remove("version");
             record["sourceIds"] = json!([draft["sourceId"]]);
         }
-        if string(&draft, "action") == "cancel" || string(&draft, "action") == "cancellation" {
+        if ["cancel", "cancellation"].contains(&string(&draft, "action"))
+            && payload["fields"]
+                .as_array()
+                .is_none_or(|fields| fields.contains(&json!("status")))
+        {
             record["status"] = json!("cancelled");
         }
         let saved = self.save_record(record, None)?;
         draft["status"] = json!("accepted");
         draft["acceptedRecordId"] = saved["id"].clone();
+        self.save_import_refund(&mut draft, &saved)?;
+        self.recalculate_booking_reminders(&saved)?;
+        self.import_notice(&draft, &saved)?;
         self.save_record(draft, None)?;
         Ok(saved)
     }
@@ -1079,6 +1176,12 @@ impl Atlas {
             .unwrap_or_else(Utc::now);
         let mut delivered = vec![];
         for mut reminder in self.records(Some("reminder"))? {
+            if self
+                .get(string(&reminder, "bookingId"))?
+                .is_some_and(|b| string(&b, "status") == "cancelled")
+            {
+                continue;
+            }
             if !["pending", "snoozed"].contains(&string(&reminder, "state")) {
                 continue;
             }
@@ -1252,30 +1355,6 @@ impl Atlas {
             .map_err(error)?;
         }
         Ok(json!({"restored":filename,"preRestoreBackup":before,"restartRecommended":true}))
-    }
-
-    fn sync_email(&mut self) -> Result<Value, String> {
-        let batch = self.email.sync()?;
-        let mut drafts = vec![];
-        for message in &batch.messages {
-            let meta = serde_json::to_value(message).map_err(error)?;
-            let text = meta.get("text").and_then(Value::as_str).unwrap_or("");
-            let mut provenance = meta.clone();
-            provenance
-                .as_object_mut()
-                .ok_or("Invalid email metadata")?
-                .remove("text");
-            let format = meta.get("format").and_then(Value::as_str).unwrap_or("text");
-            if !imports::is_booking_message(text, format) {
-                continue;
-            }
-            let parsed = self.parse_import(text, format, Some(&provenance))?;
-            drafts.extend(parsed.as_array().cloned().unwrap_or_default());
-        }
-        self.email.acknowledge(&batch)?;
-        Ok(
-            json!({"drafts":drafts,"messagesProcessed":batch.messages.len(),"hasMore":batch.has_more,"status":self.email.status()?}),
-        )
     }
 
     fn convert_money(&self, payload: &Value) -> Result<Value, String> {

@@ -5,7 +5,7 @@ export type AtlasTarget = {
   date?: string;
   month?: string;
   settingsCategory?: string;
-  action?: "imports" | "updates" | "work";
+  action?: "imports" | "updates" | "work" | "readiness";
 };
 
 /** Targets are local, typed locations, never executable URLs or model commands. */
@@ -21,6 +21,6 @@ export function validTarget(target: AtlasTarget): boolean {
         !Number.isNaN(Date.parse(target.date)) &&
         new Date(target.date).toISOString().slice(0, 10) === target.date)) &&
     (!target.month || /^\d{4}-(0[1-9]|1[0-2])$/.test(target.month)) &&
-    (!target.action || ["imports", "updates", "work"].includes(target.action))
+    (!target.action || ["imports", "updates", "work", "readiness"].includes(target.action))
   );
 }

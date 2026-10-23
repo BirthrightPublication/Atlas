@@ -181,6 +181,122 @@ impl Atlas {
             .unwrap_or_else(|| Utc::now().format("%Y-%m-%d").to_string());
         crate::parse_date(&date)?;
         let month = context["month"].as_str().unwrap_or(&date[..7]);
+        if q.contains("prepared")
+            || q.contains("readiness")
+            || q.contains("before departure")
+            || q.contains("cancellation deadline")
+        {
+            let result = crate::automation::readiness(&records, &settings, &json!({"start":date}))?;
+            let items = result["items"].as_array().unwrap();
+            let pending = items
+                .iter()
+                .filter(|i| ["attention", "unknown"].contains(&text(i, "group")))
+                .count();
+            return Ok(
+                json!({"message":format!("Travel readiness from saved records: {pending} attention or unverified items. {}",items.iter().take(12).map(|i|format!("{}: {}",text(i,"title"),text(i,"detail"))).collect::<Vec<_>>().join("\n")),"analysis":result,"targets":[{"label":"Trip Readiness","target":{"action":"readiness","module":"Calendar","date":date}}]}),
+            );
+        }
+        if (q.contains("import") && !q.contains("configure") && !q.contains("setup"))
+            || q.contains("approval")
+            || q.contains("what changed")
+            || q.contains("cancelled reservations")
+            || q.contains("refund")
+            || q.contains("upcoming payments")
+        {
+            let relevant: Vec<_> = records
+                .iter()
+                .filter(|r| match text(r, "kind") {
+                    "draft" => {
+                        !q.contains("cancelled")
+                            && (q.contains("import")
+                                || q.contains("approval")
+                                || q.contains("changed"))
+                    }
+                    "refund" => q.contains("refund"),
+                    "payment" => {
+                        q.contains("payment")
+                            && text(r, "status") == "planned"
+                            && text(r, "date") >= date.as_str()
+                    }
+                    "stay" | "transport" => {
+                        q.contains("cancelled") && text(r, "status") == "cancelled"
+                    }
+                    _ => false,
+                })
+                .take(30)
+                .cloned()
+                .collect();
+            let details = relevant
+                .iter()
+                .map(|r| {
+                    if text(r, "kind") == "draft" {
+                        format!(
+                            "{} · {} · {}",
+                            r["record"]["name"].as_str().unwrap_or("Booking"),
+                            text(r, "action"),
+                            text(r, "status")
+                        )
+                    } else {
+                        format!(
+                            "{} · {}",
+                            text(r, "name"),
+                            r["state"].as_str().unwrap_or(text(r, "status"))
+                        )
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+            return Ok(
+                json!({"message":format!("{} saved item(s) match.\n{details}\nChanges require review. An expected refund is not settled cash.",relevant.len()),"records":relevant,"targets":[{"label":"Review booking changes","target":{"action":"imports"}},{"label":"Payments","target":{"module":"Budget"}}]}),
+            );
+        }
+        if q.contains("compare")
+            || q.contains("cheapest")
+            || q.contains("lowest total")
+            || q.contains("saved route")
+        {
+            let result = self.automation("discovery.compare", &json!({}))?;
+            let lines = result["ranked"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .take(12)
+                .map(|r| {
+                    format!(
+                        "{}. {} · {} minor units {} · {}. {}",
+                        r["rankWithinGroup"],
+                        text(r, "name"),
+                        r["knownPayableMinor"],
+                        text(r, "currency"),
+                        text(r, "affordability"),
+                        r["reasons"]
+                            .as_array()
+                            .into_iter()
+                            .flatten()
+                            .filter_map(Value::as_str)
+                            .collect::<Vec<_>>()
+                            .join("; ")
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+            let offers = result["ranked"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .map(|r| r["record"].clone())
+                .chain(
+                    result["transport"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .map(|r| r["record"].clone()),
+                )
+                .collect::<Vec<_>>();
+            return Ok(
+                json!({"message":format!("Saved offers, grouped by dates and currency.\n{lines}\n{}",text(&result,"rankingBasis")),"analysis":result,"records":offers,"targets":[{"label":"Compare saved offers","target":{"module":"Discover"}}]}),
+            );
+        }
         if q.contains("gap") || q.contains("uncovered") {
             let start = crate::parse_date(&format!("{month}-01"))?;
             let end = (start + Duration::days(32)).format("%Y-%m-01").to_string();

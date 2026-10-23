@@ -137,7 +137,7 @@ try {
       ).toString("base64"),
     });
   }
-  if (mode === "capture") {
+  if (mode === "capture" || mode === "seed") {
     const conversation = await rpc("chat.create");
     await rpc("chat.send", {
       id: conversation.id,
@@ -197,7 +197,7 @@ try {
   };
   const baseline =
     mode === "verify" ? JSON.parse(await readFile(snapshotFile, "utf8")) : null;
-  if (mode === "capture" || baseline?.panels) {
+  if (mode === "capture" || mode === "seed" || baseline?.panels) {
     const chats = await rpc("chat.list");
     result.panels = {
       chats: await Promise.all(
@@ -209,13 +209,13 @@ try {
   if (mode !== "verify")
     await writeFile(snapshotFile, JSON.stringify(result, null, 2));
   else {
-    if (baseline.schema === 3 && schema === 4) {
+    if ([3, 4].includes(baseline.schema) && schema === 5) {
       const backups = await readdir(path.join(dataDir, "backups"));
       assert.ok(
-        backups.some((name) => name.startsWith("pre-migration-v3-")),
+        backups.some((name) => name.startsWith(`pre-migration-v${baseline.schema}-`)),
         "Schema upgrade requires a retained pre-migration backup",
       );
-      baseline.schema = 4;
+      baseline.schema = 5;
     }
     assert.deepEqual(
       result,

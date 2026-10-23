@@ -3563,3 +3563,260 @@ svg {
   margin-top: 12px;
   color: var(--muted) !important;
 }
+
+/* v0.4 contextual workspaces keep the approved dock and neutral palette. */
+.connection-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  border-bottom: 1px solid var(--border);
+  padding: 10px 0;
+  margin-bottom: 20px;
+}
+.connection-steps button {
+  padding: 9px 12px;
+  color: var(--muted);
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  font-size: 12px;
+}
+.connection-steps button.active {
+  color: var(--text);
+  background: var(--panel);
+  border-color: var(--border);
+}
+.import-center,
+.readiness-page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 26px 28px 50px;
+  min-width: 0;
+}
+.import-center .drawer-heading {
+  padding: 16px 0;
+}
+.import-center .detail-content {
+  padding: 0;
+}
+.import-center .drawer-top {
+  padding: 0;
+}
+.import-center h1,
+.readiness-page h1 {
+  font-size: 30px;
+  letter-spacing: -1px;
+  margin: 8px 0 12px;
+}
+.import-center .import-card {
+  margin: 14px 0;
+  padding: 20px;
+}
+.import-card small,
+.import-card p {
+  overflow-wrap: anywhere;
+}
+.revision-fields {
+  margin: 16px 0;
+  display: grid;
+  gap: 1px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.revision-field {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 10px;
+  padding: 14px;
+  background: var(--panel);
+}
+.revision-field > input {
+  margin-top: 3px;
+}
+.revision-field strong {
+  font-size: 12px;
+}
+.revision-field small {
+  display: block;
+  color: var(--muted);
+  margin: 5px 0;
+  font-size: 11px;
+}
+.change-values {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 16px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  margin: 10px 0;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.change-values del {
+  color: var(--muted);
+  text-decoration: none;
+}
+.change-values b {
+  font-weight: 500;
+}
+.sync-statistics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin: 20px 0;
+}
+.sync-statistics dt {
+  font-size: 11px;
+  color: var(--muted);
+}
+.sync-statistics dd {
+  margin: 6px 0;
+  font-size: 14px;
+  font-family: var(--font-numeric, "Times New Roman", Times, serif);
+}
+.readiness-next,
+.readiness-groups,
+.comparison-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  margin: 24px 0;
+}
+.readiness-next article,
+.readiness-groups > section,
+.scenario-result {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  background: var(--panel);
+}
+.readiness-groups h2 {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 16px;
+  margin: 0 0 16px;
+}
+.readiness-groups .count-badge {
+  margin-left: auto;
+}
+.readiness-item {
+  position: relative;
+  display: block;
+  text-align: left;
+  width: 100%;
+  padding: 14px 26px 14px 0;
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--border);
+  color: var(--text);
+}
+.readiness-item small,
+.suggestion-row small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.7;
+  margin-top: 5px;
+}
+.readiness-item strong {
+  font-weight: 500;
+  font-size: 13px;
+}
+.readiness-item svg {
+  position: absolute;
+  right: 0;
+  top: 15px;
+}
+.suggestion-row {
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+.suggestion-row strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+.prepared-search,
+.offer-workbench {
+  padding: 20px 0;
+  margin: 12px 0;
+}
+.prepared-search summary,
+.watchlist-actions summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+}
+.watchlist-actions {
+  border-top: 1px solid var(--border);
+  margin-top: 16px;
+  padding-top: 14px;
+}
+.watchlist-actions .field {
+  margin-top: 12px;
+}
+.comparison-cards .import-card {
+  margin: 0;
+  min-width: 0;
+}
+.comparison-cards ul {
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.comparison-cards .offer-name {
+  display: block;
+  text-align: left;
+  margin: 12px 0;
+}
+@media (max-width: 700px) {
+  .import-center,
+  .readiness-page {
+    padding: 20px 14px 40px;
+  }
+  .readiness-next,
+  .readiness-groups,
+  .comparison-cards {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .connection-steps button {
+    font-size: 11px;
+    padding: 8px;
+  }
+  .change-values {
+    grid-template-columns: 1fr;
+  }
+  .suggestion-row {
+    align-items: start;
+    flex-direction: column;
+  }
+  .calendar-subtoolbar {
+    flex-wrap: wrap;
+  }
+  .import-center .import-card {
+    padding: 15px;
+  }
+}
+.readiness-next small {
+  display: block;
+  margin: 8px 0;
+}
+.offer-workbench .advanced-settings {
+  margin: 16px 0;
+}
+.import-card .revision-review {
+  margin-top: 20px;
+}
+.import-card > p {
+  line-height: 1.7;
+  margin: 4px 0;
+}
+.import-card .evidence {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}

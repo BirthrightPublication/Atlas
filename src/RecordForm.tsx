@@ -50,6 +50,7 @@ export function newRecord(
     return {
       ...base,
       type: "apartment",
+      offerType: "stay",
       address: "",
       checkIn: date,
       checkOut: addDays(date, 7),
@@ -433,7 +434,13 @@ export function RecordForm({
                   true,
                   "Give it a name",
                 )}
-              {["stay", "quote"].includes(form.kind) && (
+              {form.kind === "quote" &&
+                select("offerType", "Offer category", [
+                  ["stay", "Accommodation"],
+                  ["transport", "Transportation"],
+                ])}
+              {(form.kind === "stay" ||
+                (form.kind === "quote" && form.offerType !== "transport")) && (
                 <>
                   {!record.id && (
                     <label className="field">
@@ -622,7 +629,8 @@ export function RecordForm({
                   </details>
                 </>
               )}
-              {form.kind === "transport" && (
+              {(form.kind === "transport" ||
+                (form.kind === "quote" && form.offerType === "transport")) && (
                 <>
                   <div className="form-grid">
                     {select("mode", "Mode", [
@@ -954,7 +962,7 @@ export function RecordForm({
                   </p>
                 </>
               )}
-              {form.kind === "place" && (
+              {["place", "watchlist"].includes(form.kind) && (
                 <>
                   {field("address", "Address")}
                   {field("category", "Category")}
@@ -1119,6 +1127,79 @@ export function RecordForm({
                     confirmation text is available from Import booking.
                   </small>
                 </label>
+              )}
+              {["quote", "watchlist"].includes(form.kind) && (
+                <details className="advanced-settings">
+                  <summary>Offer evidence & watchlist details</summary>
+                  {select("category", "Watchlist category", [
+                    ["accommodation", "Accommodation"],
+                    ["transport", "Transportation"],
+                    ["destination", "Destination"],
+                    ["experience", "Experience"],
+                    ["resource", "Travel resource"],
+                  ])}
+                  {field("url", "Source URL", "url")}
+                  {field("checkedAt", "Last checked date", "date")}
+                  {field("provider", "Provider")}
+                  {select("availability", "Availability", [
+                    ["unknown", "Unknown"],
+                    ["available", "Available at last check"],
+                    ["unavailable", "Unavailable"],
+                    ["stale", "Needs recheck"],
+                  ])}
+                  {field("availabilityEvidence", "Availability evidence")}
+                  {field("cancellationPolicy", "Cancellation terms")}
+                  {field(
+                    "discountEvidence",
+                    "Verified discount details (included in total)",
+                  )}
+                  {field("feesEvidence", "Fees / taxes evidence")}
+                  {form.kind === "watchlist" && (
+                    <>
+                      {field("checkIn", "Travel start", "date")}
+                      {field("checkOut", "Travel end", "date")}
+                      {field("currency", "Currency")}
+                      {amount("targetBudgetMinor", "Target budget")}
+                    </>
+                  )}
+                  {form.offerType === "transport" && (
+                    <>
+                      {amount(
+                        "baggageMinor",
+                        "Baggage charges (blank = unknown)",
+                      )}
+                      {amount(
+                        "transferMinor",
+                        "Transfer costs (blank = unknown)",
+                      )}
+                      {amount(
+                        "overnightMinor",
+                        "Overnight accommodation (blank = unknown)",
+                      )}
+                      {field("baggage", "Baggage allowance")}
+                      {field("connections", "Connections / transfers")}
+                    </>
+                  )}
+                </details>
+              )}
+              {["stay", "transport"].includes(form.kind) && (
+                <details className="advanced-settings">
+                  <summary>
+                    Booking instructions, deadlines & payment evidence
+                  </summary>
+                  {field("paymentDueAt", "Payment due instant (ISO + offset)")}
+                  {field(
+                    "cancellationAt",
+                    "Cancellation deadline (ISO + offset)",
+                  )}
+                  {field("cancellationPolicy", "Cancellation terms")}
+                  {field("instructions", "Check-in / ticket instructions")}
+                  {field("contact", "Provider contact")}
+                  {field("flightNumber", "Service / flight number")}
+                  {field("terminal", "Terminal")}
+                  {field("platform", "Platform")}
+                  {field("baggage", "Baggage allowance")}
+                </details>
               )}
               <label className="field">
                 <span>Notes & source evidence</span>
