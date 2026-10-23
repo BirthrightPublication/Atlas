@@ -1,0 +1,95 @@
+{
+  "repository": "BirthrightPublication/Atlas",
+  "sourceCommit": "1847bb6a6a95cb6b49e9f0dce9cbe7b38fa20278",
+  "runId": 39877897142,
+  "runUrl": "https://github.com/BirthrightPublication/Atlas/actions/runs/39877897142",
+  "conclusion": "success",
+  "jobs": [
+    {
+      "id": 120167894663,
+      "name": "desktop (windows-2022, x86_64-pc-windows-msvc, nsis)",
+      "conclusion": "success",
+      "url": "https://github.com/BirthrightPublication/Atlas/actions/runs/39877897142/job/120167894663"
+    },
+    {
+      "id": 120167895081,
+      "name": "desktop (ubuntu-22.04, x86_64-unknown-linux-gnu, appimage,deb)",
+      "conclusion": "success",
+      "url": "https://github.com/BirthrightPublication/Atlas/actions/runs/39877897142/job/120167895081"
+    },
+    {
+      "id": 120167895162,
+      "name": "desktop (macos-14, aarch64-apple-darwin, dmg)",
+      "conclusion": "success",
+      "url": "https://github.com/BirthrightPublication/Atlas/actions/runs/39877897142/job/120167895162"
+    },
+    {
+      "id": 120167895289,
+      "name": "desktop (macos-15-intel, x86_64-apple-darwin, dmg)",
+      "conclusion": "success",
+      "url": "https://github.com/BirthrightPublication/Atlas/actions/runs/39877897142/job/120167895289"
+    }
+  ],
+  "files": [
+    {
+      "filename": "Birthright-Atlas_0.3.0_windows_x86_64-setup.exe",
+      "sha256": "8242b2bc5f00e4c5db165fe8c4dbcb18d4147ce1a1b26cc86a909ae873fe3acd",
+      "bytes": 9647561,
+      "jobId": 120167894663
+    },
+    {
+      "filename": "Birthright-Atlas_0.3.0_linux_x86_64.deb",
+      "sha256": "3bd97a75ad95ebd011d0d2bba2221e005f4aa517f3215fe2db0908f50125f868",
+      "bytes": 14965372,
+      "jobId": 120167895081
+    },
+    {
+      "filename": "Birthright-Atlas_0.3.0_linux_x86_64.AppImage",
+      "sha256": "0c3eae5f31aa6bbde2f83eebd2d1fb812b4e5cc5d6b94f6958d3cf24b8fbc629",
+      "bytes": 94132728,
+      "jobId": 120167895081
+    },
+    {
+      "filename": "Birthright-Atlas_0.3.0_macos_aarch64.dmg",
+      "sha256": "de812d9e78a57babc485df317be2e1e6e2965df675de697c55016758bb0f0137",
+      "bytes": 12100013,
+      "jobId": 120167895162
+    },
+    {
+      "filename": "Birthright-Atlas_0.3.0_macos_x86_64.dmg",
+      "sha256": "8b83f7284ca5dc8a383a7cdb212d317c2240bef02b237354940feff46ec7d396",
+      "bytes": 12848432,
+      "jobId": 120167895289
+    }
+  ],
+  "archives": [
+    {
+      "id": 12470021957,
+      "name": "atlas-x86_64-unknown-linux-gnu",
+      "sha256": "e6fced384f51ef9036ecfc98504977b5a8d366ae328fe3f26845bdee184b508c",
+      "bytes": 108587880,
+      "url": "https://github.com/BirthrightPublication/Atlas/actions/runs/39877897142/artifacts/12470021957"
+    },
+    {
+      "id": 12469832923,
+      "name": "atlas-x86_64-pc-windows-msvc",
+      "sha256": "243c12ae4cb5ce0dc5395c42ba4fed714339ff79031b88a2a1e8d7868bbb1f61",
+      "bytes": 10069205,
+      "url": "https://github.com/BirthrightPublication/Atlas/actions/runs/39877897142/artifacts/12469832923"
+    },
+    {
+      "id": 12469258655,
+      "name": "atlas-x86_64-apple-darwin",
+      "sha256": "9cd13f0205c02bad6a21e0faef924046d3d131c75d6dcd1a54aef021b84927fc",
+      "bytes": 13166862,
+      "url": "https://github.com/BirthrightPublication/Atlas/actions/runs/39877897142/artifacts/12469258655"
+    },
+    {
+      "id": 12469168764,
+      "name": "atlas-aarch64-apple-darwin",
+      "sha256": "7631aa2ebcea12d1ab81835489cfefd29aedbd019e7c795c2c3d2929be598463",
+      "bytes": 12438968,
+      "url": "https://github.com/BirthrightPublication/Atlas/actions/runs/39877897142/artifacts/12469168764"
+    }
+  ]
+}

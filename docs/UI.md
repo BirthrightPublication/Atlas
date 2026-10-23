@@ -5,7 +5,7 @@ calculations. Native windows use Tauri IPC. Development uses Vite's loopback
 proxy to the authenticated host in development mode. There is no mock database
 fallback when the service is unavailable.
 
-Version 0.2 uses `src/theme.css` for the common neutral palette and `src/shell.css`
+Version 0.3 retains `src/theme.css` for the common neutral palette and `src/shell.css`
 for the native desktop layout. The header, scrollable workspace and bottom dock
 occupy separate grid rows, so content cannot disappear beneath navigation.
 Calendar, Discover, Map and Budget keep their full content width. Switching
