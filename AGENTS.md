@@ -29,7 +29,7 @@ npm run build
 cargo test --workspace --locked
 cargo build --locked -p atlas-host
 npm run test:e2e
-node --test scripts/release.test.mjs tests/money-input.test.mjs
+node --test scripts/release.test.mjs tests/money-input.test.mjs scripts/update-test-feed.test.mjs
 ```
 
 Tests use temporary data directories. Keep live account, physical device,

@@ -55,8 +55,8 @@ jobs:
         run: npm run build
       - name: Test native services
         run: cargo test --workspace --locked
-      - name: Test exact money input and signed artifacts
-        run: node --test scripts/release.test.mjs tests/money-input.test.mjs
+      - name: Test exact money, signed artifacts and controlled feed
+        run: node --test scripts/release.test.mjs tests/money-input.test.mjs scripts/update-test-feed.test.mjs
       - name: Build native installer
         run: node scripts/build-desktop.mjs --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
       - name: Stage exact artifacts

@@ -61,6 +61,9 @@ try {
     $target='target/x86_64-pc-windows-msvc/release/bundle/nsis/Birthright Atlas_0.4.1-update-test.1_x64-setup.exe'
     Copy-Item -LiteralPath $target -Destination (Join-Path $fixture 'update.exe')
     Copy-Item -LiteralPath "$target.sig" -Destination (Join-Path $fixture 'update.exe.sig')
+    # Serve the exact version that produced the signed artifact, never a stale fixture constant.
+    $targetVersion=[string](Get-Content (Join-Path $repository 'src-tauri/tauri.conf.json') -Raw|ConvertFrom-Json).version
+    [IO.File]::WriteAllText((Join-Path $fixture 'update-version.txt'),$targetVersion)
     $report.testInstallerSha256=(Get-FileHash $target -Algorithm SHA256).Hash.ToLowerInvariant()
     $install=Start-Owned $baseline @('/S',"/D=$InstallDirectory")
     if(-not $install.WaitForExit(180000) -or $install.ExitCode -ne 0){throw 'Controlled baseline install failed.'}
