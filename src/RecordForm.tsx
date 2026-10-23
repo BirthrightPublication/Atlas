@@ -1,4 +1,4 @@
-import { useState, FormEvent } from "react";
+import { useState, useEffect, FormEvent } from "react";
 import {
   X,
   Save,
@@ -21,7 +21,10 @@ import {
   openExternal,
   prettyDate,
   rpc,
+  zonedDay,
+  zonedTime,
 } from "./api";
+import { DraftAnalysis } from "./Planning";
 
 import { useDialog } from "./useDialog";
 
@@ -52,7 +55,7 @@ export function newRecord(
       checkOut: addDays(date, 7),
       checkInTime: "15:00",
       checkOutTime: "11:00",
-      status: "confirmed",
+      status: "tentative",
       totalMinor: 0,
       provider: "",
       reservationId: "",
@@ -66,7 +69,7 @@ export function newRecord(
   if (kind === "transport")
     return {
       ...base,
-      mode: "train",
+      mode: settings.context === "on_road" ? "car" : "train",
       origin: "",
       destination: "",
       departure: `${date}T09:00:00Z`,
@@ -74,7 +77,7 @@ export function newRecord(
       departureTimezone: timezone,
       arrivalTimezone: timezone,
       overnight: false,
-      status: "confirmed",
+      status: "tentative",
       totalMinor: 0,
     };
   if (kind === "objective")
@@ -169,6 +172,94 @@ export function RecordForm({
   );
   const [history, setHistory] = useState<any[] | null>(null);
   const [scenario, setScenario] = useState<any>(null);
+  const [analysis, setAnalysis] = useState<any>(null);
+  const [analysisError, setAnalysisError] = useState("");
+  useEffect(() => {
+    if (!["stay", "quote", "transport"].includes(form.kind)) return;
+    let alive = true;
+    const timer = setTimeout(() => {
+      rpc("planning.preview", { record: form })
+        .then((result) => {
+          if (alive) {
+            setAnalysis({ ...result, currency: form.currency });
+            setAnalysisError("");
+          }
+        })
+        .catch((e) => {
+          if (alive) {
+            setAnalysis(null);
+            setAnalysisError(String(e));
+          }
+        });
+    }, 200);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [form]);
+  async function attach(file?: File) {
+    if (!file) return;
+    if (file.size > 20 * 1024 * 1024) {
+      setError("Attachments must be at most 20 MiB");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      let raw = "";
+      for (let i = 0; i < bytes.length; i += 8192)
+        raw += String.fromCharCode(...bytes.subarray(i, i + 8192));
+      const result = await rpc("documents.attach", {
+        filename: file.name,
+        contentBase64: btoa(raw),
+      });
+      setForm((f) => ({
+        ...f,
+        documentIds: [...(f.documentIds || []), result.document.id],
+      }));
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function localInstant(field: string, value: string, zone: string) {
+    if (!value) return;
+    try {
+      const result = await rpc("planning.instant", {
+        date: value.slice(0, 10),
+        time: value.slice(11, 16),
+        timezone: zone,
+      });
+      set(field, result.instant);
+      setError("");
+    } catch (e) {
+      setError(
+        `${String(e)} Use the explicit instant field to disambiguate a repeated clock time.`,
+      );
+    }
+  }
+  function duplicate() {
+    const draft: AtlasRecord = {
+      ...record,
+      id: "",
+      name: `${record.name} (draft)`,
+      status: "tentative",
+      reservationId: "",
+      sourceIds: [],
+      _edit: true,
+    };
+    for (const key of [
+      "version",
+      "createdAt",
+      "updatedAt",
+      "paymentSchedule",
+      "_importKey",
+    ])
+      delete draft[key];
+    onSaved(draft);
+  }
   const set = (key: string, value: any) =>
     setForm((f) => ({ ...f, [key]: value }));
   const field = (
@@ -269,7 +360,17 @@ export function RecordForm({
       setBusy(false);
     }
   }
-  const facilities = ["refrigerator", "workspace", "kitchen", "internet"];
+  const facilities = [
+    "refrigerator",
+    "workspace",
+    "kitchen",
+    "internet",
+    "quiet",
+    "power",
+    "private",
+    "scenic",
+    "utilitiesIncluded",
+  ];
   const linkedStay = records.find((r) => r.id === record.stayId);
   return (
     <div
@@ -334,6 +435,41 @@ export function RecordForm({
                 )}
               {["stay", "quote"].includes(form.kind) && (
                 <>
+                  {!record.id && (
+                    <label className="field">
+                      <span>Reuse details from a saved stay (optional)</span>
+                      <select
+                        defaultValue=""
+                        onChange={(e) => {
+                          const previous = records.find(
+                            (r) => r.id === e.target.value,
+                          );
+                          if (previous)
+                            setForm((f) => ({
+                              ...f,
+                              name: previous.name,
+                              type: previous.type,
+                              address: previous.address,
+                              timezone: previous.timezone,
+                              provider: previous.provider,
+                              facilities: { ...previous.facilities },
+                              notes:
+                                "Details copied for review; dates and reservation are unconfirmed.",
+                              status: "tentative",
+                            }));
+                        }}
+                      >
+                        <option value="">Enter new accommodation</option>
+                        {records
+                          .filter((r) => r.kind === "stay")
+                          .map((r) => (
+                            <option key={r.id} value={r.id}>
+                              {r.name}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                  )}
                   <div className="form-grid">
                     {select("type", "Accommodation", [
                       ["apartment", "Entire apartment"],
@@ -382,88 +518,108 @@ export function RecordForm({
                     {field("reservationId", "Reservation ID")}
                   </div>
                   {field("url", "Listing / reservation URL", "url")}
-                  {field("hostUrl", "Host conversation URL", "url")}
-                  {field("contact", "Contact details")}
-                  <h3 className="form-section">Facilities & evidence</h3>
-                  <div className="form-grid">
-                    {facilities.map((key) => (
-                      <label className="field" key={key}>
-                        <span>{key[0].toUpperCase() + key.slice(1)}</span>
-                        <select
-                          value={
-                            form.facilities?.[key] === true
-                              ? "yes"
-                              : form.facilities?.[key] === false
-                                ? "no"
-                                : "unknown"
-                          }
-                          onChange={(e) =>
-                            set("facilities", {
-                              ...form.facilities,
-                              [key]:
-                                e.target.value === "unknown"
-                                  ? null
-                                  : e.target.value === "yes",
-                            })
-                          }
-                        >
-                          <option value="unknown">
-                            Unknown / not verified
-                          </option>
-                          <option value="yes">Verified available</option>
-                          <option value="no">Not available</option>
-                        </select>
-                      </label>
-                    ))}
-                  </div>
-                  <div className="form-grid">
-                    {field("latitude", "Latitude", "number")}
-                    {field("longitude", "Longitude", "number")}
-                  </div>
-                  {field(
-                    "cancellationAt",
-                    "Cancellation deadline (ISO with offset)",
-                    "text",
-                    false,
-                    "2026-12-01T18:00:00+01:00",
-                  )}
-                  {form.type === "vehicle" && (
-                    <>
-                      {field("landManager", "Land manager")}
-                      {field("rulesUrl", "Official rules URL", "url")}
-                      {select("overnightPermission", "Overnight permission", [
-                        ["unknown", "Unknown"],
-                        ["permitted", "Confirmed permitted"],
-                        ["prohibited", "Prohibited"],
-                      ])}
-                      {field("rulesCheckedAt", "Rules checked", "date")}
-                      {field("stayLimit", "Confirmed stay limit")}
-                      {field(
-                        "accessNotes",
-                        "Road access / vehicle suitability",
-                      )}
-                      {field("fallbackPlace", "Fallback place")}
-                    </>
-                  )}
-                  {form.kind === "quote" && (
-                    <>
-                      <label className="check-field">
-                        <input
-                          type="checkbox"
-                          checked={!!form.feesComplete}
-                          onChange={(e) =>
-                            set("feesComplete", e.target.checked)
-                          }
-                        />{" "}
-                        Mandatory fees and taxes included in this quoted total
-                      </label>
-                      {field("checkedAt", "Quote checked", "date")}
-                      {field(
-                        "stretchReason",
-                        "Reason to consider an over-target offer",
-                      )}
-                    </>
-                  )}
+                  <DraftAnalysis result={analysis} error={analysisError} />
+                  <details className="record-section">
+                    <summary>Facilities, evidence & booking details</summary>
+                    {field("hostUrl", "Host conversation URL", "url")}
+                    {field("contact", "Contact details")}
+                    <h3 className="form-section">Facilities & evidence</h3>
+                    <div className="form-grid">
+                      {facilities.map((key) => (
+                        <label className="field" key={key}>
+                          <span>{key[0].toUpperCase() + key.slice(1)}</span>
+                          <select
+                            value={
+                              form.facilities?.[key] === true
+                                ? "yes"
+                                : form.facilities?.[key] === false
+                                  ? "no"
+                                  : "unknown"
+                            }
+                            onChange={(e) =>
+                              set("facilities", {
+                                ...form.facilities,
+                                [key]:
+                                  e.target.value === "unknown"
+                                    ? null
+                                    : e.target.value === "yes",
+                              })
+                            }
+                          >
+                            <option value="unknown">
+                              Unknown / not verified
+                            </option>
+                            <option value="yes">Verified available</option>
+                            <option value="no">Not available</option>
+                          </select>
+                        </label>
+                      ))}
+                    </div>
+                    {field("internetEvidence", "Internet reliability evidence")}
+                    {field("noiseExpectations", "Noise expectations")}
+                    {field("amenities", "Other amenities")}
+                    {field("monthlyDiscount", "Monthly discount evidence")}
+                    {field("taxesAndFees", "Taxes and mandatory fees evidence")}
+                    {select("alternateWorkspaceId", "Alternate workspace", [
+                      ["", "No alternate workspace"],
+                      ...records
+                        .filter((r) => r.kind === "place")
+                        .map((r) => [r.id, r.name] as [string, string]),
+                    ])}
+                    {field(
+                      "workspaceCommuteMinutes",
+                      "Known workspace commute (minutes)",
+                      "number",
+                    )}
+                    <div className="form-grid">
+                      {field("latitude", "Latitude", "number")}
+                      {field("longitude", "Longitude", "number")}
+                    </div>
+                    {field(
+                      "cancellationAt",
+                      "Cancellation deadline (ISO with offset)",
+                      "text",
+                      false,
+                      "2026-12-01T18:00:00+01:00",
+                    )}
+                    {form.type === "vehicle" && (
+                      <>
+                        {field("landManager", "Land manager")}
+                        {field("rulesUrl", "Official rules URL", "url")}
+                        {select("overnightPermission", "Overnight permission", [
+                          ["unknown", "Unknown"],
+                          ["permitted", "Confirmed permitted"],
+                          ["prohibited", "Prohibited"],
+                        ])}
+                        {field("rulesCheckedAt", "Rules checked", "date")}
+                        {field("stayLimit", "Confirmed stay limit")}
+                        {field(
+                          "accessNotes",
+                          "Road access / vehicle suitability",
+                        )}
+                        {field("fallbackPlace", "Fallback place")}
+                      </>
+                    )}
+                    {form.kind === "quote" && (
+                      <>
+                        <label className="check-field">
+                          <input
+                            type="checkbox"
+                            checked={!!form.feesComplete}
+                            onChange={(e) =>
+                              set("feesComplete", e.target.checked)
+                            }
+                          />{" "}
+                          Mandatory fees and taxes included in this quoted total
+                        </label>
+                        {field("checkedAt", "Quote checked", "date")}
+                        {field(
+                          "stretchReason",
+                          "Reason to consider an over-target offer",
+                        )}
+                      </>
+                    )}
+                  </details>
                 </>
               )}
               {form.kind === "transport" && (
@@ -475,7 +631,8 @@ export function RecordForm({
                       ["bus", "Bus"],
                       ["ferry", "Ferry"],
                       ["car", "Car"],
-                      ["taxi", "Taxi"],
+                      ["taxi", "Taxi / rideshare"],
+                      ["rental", "Rental vehicle"],
                       ["walk", "Walking"],
                     ])}
                     {select("context", "Travel context", [
@@ -484,8 +641,100 @@ export function RecordForm({
                     ])}
                   </div>
                   <div className="form-grid">
+                    <label className="field">
+                      <span>Origin from saved stay or segment</span>
+                      <select
+                        defaultValue=""
+                        onChange={(e) => {
+                          const r = records.find(
+                            (r) => r.id === e.target.value,
+                          );
+                          if (r)
+                            setForm((f) => ({
+                              ...f,
+                              origin:
+                                r.kind === "stay" ? r.address : r.destination,
+                              departureTimezone:
+                                r.timezone || r.arrivalTimezone,
+                              originStayId:
+                                r.kind === "stay" ? r.id : undefined,
+                            }));
+                        }}
+                      >
+                        <option value="">Choose an editable suggestion</option>
+                        {records
+                          .filter(
+                            (r) =>
+                              r.kind === "stay" ||
+                              (r.kind === "transport" &&
+                                r.status === "confirmed"),
+                          )
+                          .map((r) => (
+                            <option key={r.id} value={r.id}>
+                              {r.name}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                    <label className="field">
+                      <span>Destination stay</span>
+                      <select
+                        value={form.destinationStayId || ""}
+                        onChange={(e) => {
+                          const r = records.find(
+                            (r) => r.id === e.target.value,
+                          );
+                          if (r)
+                            setForm((f) => ({
+                              ...f,
+                              destination: r.address,
+                              arrivalTimezone: r.timezone,
+                              destinationStayId: r.id,
+                            }));
+                        }}
+                      >
+                        <option value="">No linked destination</option>
+                        {records
+                          .filter((r) => r.kind === "stay")
+                          .map((r) => (
+                            <option key={r.id} value={r.id}>
+                              {r.name}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
                     {field("origin", "Origin", "text", true)}
                     {field("destination", "Destination", "text", true)}
+                  </div>
+                  <div className="form-grid">
+                    <label className="field">
+                      <span>Departure local date/time</span>
+                      <input
+                        type="datetime-local"
+                        value={`${zonedDay(form.departure, form.departureTimezone)}T${zonedTime(form.departure, form.departureTimezone)}`}
+                        onChange={(e) =>
+                          localInstant(
+                            "departure",
+                            e.target.value,
+                            form.departureTimezone,
+                          )
+                        }
+                      />
+                    </label>
+                    <label className="field">
+                      <span>Arrival local date/time</span>
+                      <input
+                        type="datetime-local"
+                        value={`${zonedDay(form.arrival, form.arrivalTimezone)}T${zonedTime(form.arrival, form.arrivalTimezone)}`}
+                        onChange={(e) =>
+                          localInstant(
+                            "arrival",
+                            e.target.value,
+                            form.arrivalTimezone,
+                          )
+                        }
+                      />
+                    </label>
                   </div>
                   {field(
                     "departure",
@@ -541,8 +790,22 @@ export function RecordForm({
                     {field("provider", "Operator")}
                     {field("reservationId", "Reservation ID")}
                   </div>
-                  {field("baggage", "Baggage included")}
-                  {field("transfers", "Connections / transfer requirements")}
+                  {field("url", "Booking URL", "url")}
+                  <DraftAnalysis result={analysis} error={analysisError} />
+                  <details className="record-section">
+                    <summary>Transfer requirements & ticket details</summary>
+                    {field(
+                      "minimumTransferMinutes",
+                      "Known minimum transfer (minutes)",
+                      "number",
+                    )}
+                    {field(
+                      "arrivalRequiredAt",
+                      "Arrival required by (ISO with offset)",
+                    )}
+                    {field("baggage", "Baggage included")}
+                    {field("transfers", "Connections / transfer requirements")}
+                  </details>
                 </>
               )}
               {form.kind === "objective" && (
@@ -696,6 +959,70 @@ export function RecordForm({
                   {field("address", "Address")}
                   {field("category", "Category")}
                   {field("url", "Website", "url")}
+                  <details className="record-section">
+                    <summary>Known workspace hours</summary>
+                    <p className="field-help">
+                      Enter owner-verified venue hours in its recorded timezone.
+                      Blank hours remain unknown.
+                    </p>
+                    {field("timezone", "Venue timezone")}
+                    <div className="form-grid">
+                      {(["start", "end"] as const).map((key) => (
+                        <label className="field" key={key}>
+                          <span>
+                            {key === "start"
+                              ? "Workspace opens"
+                              : "Workspace closes"}
+                          </span>
+                          <input
+                            type="time"
+                            value={form.workspaceHours?.[key] || ""}
+                            onChange={(e) =>
+                              set("workspaceHours", {
+                                ...form.workspaceHours,
+                                [key]: e.target.value,
+                              })
+                            }
+                          />
+                        </label>
+                      ))}
+                    </div>
+                    <div className="inline-actions">
+                      {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(
+                        (day, i) => (
+                          <label key={day}>
+                            <input
+                              type="checkbox"
+                              checked={(
+                                form.workspaceHours?.weekdays || [
+                                  1, 2, 3, 4, 5, 6, 7,
+                                ]
+                              ).includes(i + 1)}
+                              onChange={(e) => {
+                                const days = form.workspaceHours?.weekdays || [
+                                  1, 2, 3, 4, 5, 6, 7,
+                                ];
+                                set("workspaceHours", {
+                                  ...form.workspaceHours,
+                                  weekdays: e.target.checked
+                                    ? [...days, i + 1]
+                                    : days.filter((n: number) => n !== i + 1),
+                                });
+                              }}
+                            />
+                            {day}
+                          </label>
+                        ),
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className="text-button"
+                      onClick={() => set("workspaceHours", null)}
+                    >
+                      Clear unverified hours
+                    </button>
+                  </details>
                   <div className="form-grid">
                     {field("latitude", "Latitude", "number")}
                     {field("longitude", "Longitude", "number")}
@@ -777,6 +1104,21 @@ export function RecordForm({
                     + Add recurring commitment
                   </button>
                 </>
+              )}
+              {["stay", "transport", "quote"].includes(form.kind) && (
+                <label className="field">
+                  <span>Attach booking document</span>
+                  <input
+                    type="file"
+                    disabled={busy}
+                    onChange={(e) => attach(e.target.files?.[0])}
+                  />
+                  <small>
+                    {form.documentIds?.length || 0} linked documents. Files are
+                    retained locally when you save; importing pasted
+                    confirmation text is available from Import booking.
+                  </small>
+                </label>
               )}
               <label className="field">
                 <span>Notes & source evidence</span>
@@ -1210,6 +1552,11 @@ export function RecordForm({
             </div>
             <div className="drawer-footer">
               <DeleteButton onDelete={remove} busy={busy} />
+              {["stay", "transport"].includes(record.kind) && (
+                <button className="secondary" onClick={duplicate}>
+                  Duplicate as draft
+                </button>
+              )}
               <button className="primary" onClick={() => setEditing(true)}>
                 Edit {record.kind}
               </button>

@@ -2,6 +2,7 @@
 
 :root {
   font-family:
+    "Atlas Numerals",
     Inter,
     -apple-system,
     BlinkMacSystemFont,
@@ -102,7 +103,7 @@ p {
 }
 h1,
 h2 {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: "Atlas Numerals", Georgia, "Times New Roman", serif;
   font-weight: 400;
 }
 h3 {
@@ -686,20 +687,20 @@ svg {
   padding-left: 8px;
 }
 .rail-money {
-  font-family: Georgia, serif;
+  font-family: "Atlas Numerals", Georgia, serif;
   color: var(--text);
   font-size: 29px;
   letter-spacing: -0.8px;
 }
 .rail-money small {
-  font-family: Arial, sans-serif;
+  font-family: "Atlas Numerals", Arial, sans-serif;
   font-size: 11px;
   letter-spacing: 0;
   color: var(--muted);
   margin-left: 5px;
 }
 .gap-note h3 {
-  font-family: Georgia, serif;
+  font-family: "Atlas Numerals", Georgia, serif;
   font-weight: 400;
   font-size: 18px;
   margin-top: 10px;
@@ -837,7 +838,7 @@ svg {
   color: var(--muted);
 }
 .agenda-day-label > span {
-  font-family: Georgia, serif;
+  font-family: "Atlas Numerals", Georgia, serif;
   font-size: 29px;
   color: var(--text);
 }
@@ -989,7 +990,7 @@ svg {
   min-width: 0;
 }
 .timeline-card h3 {
-  font-family: Georgia, serif;
+  font-family: "Atlas Numerals", Georgia, serif;
   font-size: 22px;
   margin: 12px 0 6px;
   color: var(--text);
@@ -1049,7 +1050,7 @@ svg {
   margin-bottom: 20px;
 }
 .empty h3 {
-  font-family: Georgia, serif;
+  font-family: "Atlas Numerals", Georgia, serif;
   color: var(--text);
   font-size: 25px;
   font-weight: 400;
@@ -1253,7 +1254,7 @@ svg {
 }
 .detail-dates strong {
   display: block;
-  font-family: Georgia, serif;
+  font-family: "Atlas Numerals", Georgia, serif;
   font-size: 25px;
   margin: 9px 0;
   color: var(--text);
@@ -1282,7 +1283,7 @@ svg {
 .detail-total strong {
   display: block;
   font-size: 30px;
-  font-family: Georgia, serif;
+  font-family: "Atlas Numerals", Georgia, serif;
   font-weight: 400;
   color: var(--text);
   margin-top: 5px;
@@ -1398,7 +1399,7 @@ svg {
   border-radius: 6px;
 }
 .import-card h3 {
-  font-family: Georgia, serif;
+  font-family: "Atlas Numerals", Georgia, serif;
   font-size: 21px;
   font-weight: 400;
   margin: 12px 0 7px;
@@ -1420,7 +1421,7 @@ svg {
   overflow-wrap: anywhere;
   color: var(--muted);
   font-size: 11px;
-  font-family: ui-monospace, monospace;
+  font-family: "Atlas Numerals", ui-monospace, monospace;
   line-height: 1.7;
   max-height: 180px;
   overflow: auto;
@@ -1527,7 +1528,7 @@ svg {
   flex: 1;
 }
 .criteria-panel h3 {
-  font-family: Georgia, serif;
+  font-family: "Atlas Numerals", Georgia, serif;
   font-size: 20px;
   font-weight: 400;
   color: var(--text);
@@ -1569,7 +1570,7 @@ svg {
   background: var(--panel);
 }
 .provider-initial {
-  font-family: Georgia, serif;
+  font-family: "Atlas Numerals", Georgia, serif;
   font-size: 25px;
   color: var(--text);
   width: 35px;
@@ -1654,7 +1655,7 @@ svg {
   padding: 17px;
 }
 .offer-name {
-  font-family: Georgia, serif;
+  font-family: "Atlas Numerals", Georgia, serif;
   font-size: 21px;
   text-align: left;
   padding: 0;
@@ -1705,7 +1706,7 @@ svg {
   color: var(--muted);
 }
 .comparison thead th {
-  font-family: Georgia, serif;
+  font-family: "Atlas Numerals", Georgia, serif;
   font-size: 20px;
   color: var(--text);
   background: var(--panel);
@@ -1735,8 +1736,7 @@ svg {
   inset: -40%;
   opacity: 0.16;
   transform: rotate(-18deg);
-  background-image:
-    var(--panel);
+  background-image: var(--panel);
   background-size: 65px 65px;
 }
 .map-compass {
@@ -1839,7 +1839,7 @@ svg {
   color: var(--muted);
 }
 .metric > strong {
-  font-family: Georgia, serif;
+  font-family: "Atlas Numerals", Georgia, serif;
   font-size: 33px;
   font-weight: 400;
   display: block;
@@ -1939,7 +1939,7 @@ svg {
   font-weight: 400;
   color: var(--text);
   display: block;
-  font-family: Georgia, serif;
+  font-family: "Atlas Numerals", Georgia, serif;
   margin: 14px 0 10px;
 }
 .daily-card p {
@@ -1985,7 +1985,7 @@ svg {
   display: block;
 }
 .cash-summary strong {
-  font-family: Georgia, serif;
+  font-family: "Atlas Numerals", Georgia, serif;
   font-size: 29px;
   font-weight: 400;
   display: block;
@@ -2070,7 +2070,7 @@ svg {
 .available-card > strong {
   font-size: 43px;
   font-weight: 400;
-  font-family: Georgia, serif;
+  font-family: "Atlas Numerals", Georgia, serif;
   color: var(--text);
   display: block;
   margin: 20px 0;
@@ -2132,7 +2132,7 @@ svg {
   background: var(--panel);
 }
 .period-panel h3 {
-  font-family: Georgia, serif;
+  font-family: "Atlas Numerals", Georgia, serif;
   font-weight: 400;
   font-size: 21px;
   color: var(--text);
@@ -2152,12 +2152,12 @@ svg {
 }
 .period-result {
   font-size: 24px;
-  font-family: Georgia, serif;
+  font-family: "Atlas Numerals", Georgia, serif;
   color: var(--text);
   margin-top: 22px;
 }
 .period-result span {
-  font-family: Arial, sans-serif;
+  font-family: "Atlas Numerals", Arial, sans-serif;
   font-size: 11px;
   display: block;
   color: var(--muted);
@@ -2346,7 +2346,7 @@ svg {
 }
 .update-version > div > strong {
   display: block;
-  font-family: Georgia, serif;
+  font-family: "Atlas Numerals", Georgia, serif;
   font-size: 24px;
   font-weight: 400;
   color: var(--text);
@@ -3492,7 +3492,7 @@ svg {
   background: var(--panel);
 }
 .match-results > h3 {
-  font-family: Georgia, serif;
+  font-family: "Atlas Numerals", Georgia, serif;
   font-size: 24px;
   font-weight: 400;
   margin: 10px 0 12px;
@@ -3544,7 +3544,7 @@ svg {
   padding: 18px;
 }
 .scenario-card h3 {
-  font-family: Georgia, serif;
+  font-family: "Atlas Numerals", Georgia, serif;
   font-size: 24px;
   font-weight: 400;
   margin: 12px 0;

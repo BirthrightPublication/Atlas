@@ -597,9 +597,19 @@ pub fn window(records: &[Value], settings: &Value, payload: &Value) -> Result<Va
     }
     // Workspace opening windows, when explicitly supplied, further constrain suggestions.
     if let Some(stay) = planned_stay {
-        if let Some(opening) = stay["workspaceHours"].as_object() {
+        let alternate = records.iter().find(|r| {
+            text(r, "kind") == "place" && text(r, "id") == text(stay, "alternateWorkspaceId")
+        });
+        let hours = alternate
+            .map(|r| &r["workspaceHours"])
+            .filter(|v| v.is_object())
+            .unwrap_or(&stay["workspaceHours"]);
+        if let Some(opening) = hours.as_object() {
             let opening_settings = json!({"localDayRestrictions":opening});
-            let opening_spans = personal_windows(&opening_settings, destination, day_span)?;
+            let venue_zone = alternate
+                .and_then(|r| text(r, "timezone").parse::<Tz>().ok())
+                .unwrap_or(destination);
+            let opening_spans = personal_windows(&opening_settings, venue_zone, day_span)?;
             restrictions = merge(
                 restrictions
                     .iter()
@@ -619,7 +629,37 @@ pub fn window(records: &[Value], settings: &Value, payload: &Value) -> Result<Va
             }
         }
     }
-    let mut busy: Vec<Interval> = blockers.iter().map(|(_, _, s)| *s).collect();
+    let commute = planned_stay
+        .filter(|s| !text(s, "alternateWorkspaceId").is_empty())
+        .and_then(|s| s["workspaceCommuteMinutes"].as_i64())
+        .filter(|v| (0..=240).contains(v));
+    if planned_stay.is_some_and(|s| !text(s, "alternateWorkspaceId").is_empty())
+        && commute.is_none()
+    {
+        warnings.push(json!({"type":"unknown_workspace_commute","message":"Alternate workspace commute duration is unknown; proposed times do not establish travel feasibility."}));
+    }
+    if let Some(minutes) = commute {
+        for (block, span) in &blocks {
+            let expanded = (
+                span.0 - Duration::minutes(minutes),
+                span.1 + Duration::minutes(minutes),
+            );
+            for (record, _, event) in &blockers {
+                if intersection(expanded, *event).is_some() {
+                    conflicts.push(json!({"type":"workspace_commute","recordId":record["id"],"workBlockId":block["id"],"message":"Recorded commute to the alternate workspace overlaps another activity."}));
+                }
+            }
+        }
+    }
+    let mut busy: Vec<Interval> = blockers
+        .iter()
+        .map(|(_, _, s)| {
+            (
+                s.0 - Duration::minutes(commute.unwrap_or(0)),
+                s.1 + Duration::minutes(commute.unwrap_or(0)),
+            )
+        })
+        .collect();
     busy.extend(work_spans.iter().copied());
     busy.extend(work_breaks.iter().copied());
     let free = subtract(restrictions, &busy);

@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.3.0 — integrated travel planning preview
+
+- Make Settings a full workspace page with explicit save/discard navigation.
+- Share one nonmodal right panel across Notifications, Updates and Assistant;
+  preserve panel state across modules and load secondary content on demand.
+- Persist local conversations, contextual responses, retry identity and notification
+  read/dismiss state in schema 4, with pre-migration and restore backups.
+- Add actionable accommodation gaps, multimonth review, tentative duplication,
+  booking documents, local-time transport entry and elapsed-time calculations.
+- Assess workspace evidence, alternate venue hours/commute, protected-work
+  conflicts, checkout gaps, arrival deadlines and overlapping transport.
+- Clarify daily/nightly/available-funds budgeting and add immutable accommodation
+  extension and transport-price scenarios using the existing exact services.
+- Use Times New Roman for numbers, with local serif fallbacks where unavailable.
+- Show actual published release history with an offline cache; extend the trusted
+  Tauri updater with measured progress, backup, duplicate protection and restart.
+- Add controlled HTTPS/signed Windows upgrade checks using disposable credentials.
+  Production signing and the published feed still require owner configuration.
+
 ## 0.2.0 — interface and usability preview
 
 - Replace the warm palette throughout the desktop and companion with shared

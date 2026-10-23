@@ -2,9 +2,12 @@
 pub mod ai;
 pub mod email;
 pub mod imports;
+pub mod journey;
 pub mod money;
+mod panels;
 pub mod planning;
 pub mod recurrence;
+pub mod releases;
 pub mod schedule;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
@@ -18,7 +21,7 @@ use std::{
 };
 use uuid::Uuid;
 
-const SCHEMA_VERSION: i64 = 3;
+const SCHEMA_VERSION: i64 = 4;
 const MAX_FILE: usize = 20 * 1024 * 1024;
 const KINDS: &[&str] = &[
     "trip",
@@ -61,6 +64,23 @@ fn hash(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
 
+fn migrate(db: &Connection) -> Result<(), String> {
+    db.execute_batch("BEGIN IMMEDIATE;
+            CREATE TABLE IF NOT EXISTS records(id TEXT PRIMARY KEY, kind TEXT NOT NULL, version INTEGER NOT NULL, body TEXT NOT NULL, updated_at TEXT NOT NULL);
+            CREATE INDEX IF NOT EXISTS records_kind ON records(kind);
+            CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS history(sequence INTEGER PRIMARY KEY AUTOINCREMENT, record_id TEXT NOT NULL, action TEXT NOT NULL, body TEXT NOT NULL, changed_at TEXT NOT NULL);
+            CREATE INDEX IF NOT EXISTS history_record ON history(record_id);
+            CREATE TABLE IF NOT EXISTS import_keys(source_key TEXT PRIMARY KEY, draft_id TEXT NOT NULL);
+            CREATE UNIQUE INDEX IF NOT EXISTS reservation_identity ON records(kind,lower(coalesce(json_extract(body,'$.provider'),'')),lower(json_extract(body,'$.reservationId')))
+                WHERE kind IN ('stay','transport') AND json_type(body,'$.reservationId')='text' AND length(json_extract(body,'$.reservationId'))>0;
+            ").map_err(error)?;
+    db.execute_batch(panels::MIGRATION).map_err(error)?;
+    db.execute_batch("PRAGMA user_version=4; COMMIT;")
+        .map_err(error)?;
+    Ok(())
+}
+
 impl Atlas {
     pub fn open(data_dir: impl AsRef<Path>) -> Result<Self, String> {
         let data_dir = data_dir.as_ref().to_path_buf();
@@ -94,17 +114,7 @@ impl Atlas {
             )
             .map_err(error)?;
         }
-        db.execute_batch("BEGIN IMMEDIATE;
-            CREATE TABLE IF NOT EXISTS records(id TEXT PRIMARY KEY, kind TEXT NOT NULL, version INTEGER NOT NULL, body TEXT NOT NULL, updated_at TEXT NOT NULL);
-            CREATE INDEX IF NOT EXISTS records_kind ON records(kind);
-            CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT NOT NULL);
-            CREATE TABLE IF NOT EXISTS history(sequence INTEGER PRIMARY KEY AUTOINCREMENT, record_id TEXT NOT NULL, action TEXT NOT NULL, body TEXT NOT NULL, changed_at TEXT NOT NULL);
-            CREATE INDEX IF NOT EXISTS history_record ON history(record_id);
-            CREATE TABLE IF NOT EXISTS import_keys(source_key TEXT PRIMARY KEY, draft_id TEXT NOT NULL);
-            CREATE UNIQUE INDEX IF NOT EXISTS reservation_identity ON records(kind,lower(coalesce(json_extract(body,'$.provider'),'')),lower(json_extract(body,'$.reservationId')))
-                WHERE kind IN ('stay','transport') AND json_type(body,'$.reservationId')='text' AND length(json_extract(body,'$.reservationId'))>0;
-            PRAGMA user_version=3;
-            COMMIT;").map_err(error)?;
+        migrate(&db)?;
         let email = email::EmailService::new(&data_dir)?;
         Ok(Self {
             db,
@@ -136,6 +146,7 @@ impl Atlas {
             ),
             "records.history" => self.history(string(&payload, "id")),
             "settings.get" => self.settings(),
+            "releases.history" => self.release_history(&payload),
             "settings.save" => self.save_settings(payload.get("settings").unwrap_or(&payload)),
             "budget.summary" => money::summary(&self.records(None)?, &self.settings()?, &payload),
             "budget.period" => {
@@ -173,6 +184,14 @@ impl Atlas {
                 draft["status"] = json!("dismissed");
                 self.save_record(draft, None)
             }
+            "documents.attach" => {
+                let mut input = payload.clone();
+                input["attachOnly"] = json!(true);
+                self.import_file(&input)
+            }
+            "planning.instant" => Ok(
+                json!({"instant": schedule::resolve_local(string(&payload,"date"),string(&payload,"time"),string(&payload,"timezone"))?.to_rfc3339()}),
+            ),
             "documents.read" => self.read_document(string(&payload, "id")),
             "calendar.export" => Ok(
                 json!({"filename":"Birthright-Atlas.ics", "content":imports::export_ics(&self.records(None)?)?}),
@@ -182,7 +201,23 @@ impl Atlas {
             "backup.export" => self.export_backup(),
             "backup.list" => self.list_backups(),
             "backup.restore" => self.restore_backup(string(&payload, "filename")),
-            "assistant.ask" => self.assistant(string(&payload, "text")),
+            "assistant.ask" => {
+                self.contextual_answer(string(&payload, "text"), &payload["context"])
+            }
+            "chat.list" | "chat.create" | "chat.get" | "chat.send" | "chat.delete"
+            | "chat.rename" | "chat.undo" => self.chat(method, &payload),
+            "notifications.list"
+            | "notifications.read"
+            | "notifications.read_all"
+            | "notifications.dismiss" => self.notifications(method, &payload),
+            "planning.gaps" => journey::gaps(&self.records(None)?, &payload),
+            "planning.preview" => {
+                journey::preview(&self.records(None)?, &self.settings()?, &payload)
+            }
+            "planning.workspace" => Ok(journey::workspace(
+                &self.records(None)?,
+                &self.get_required(string(&payload, "id"))?,
+            )),
             "email.status" => self.email.status(),
             "email.configure" => self.email.configure(&payload),
             "email.connect" => self.email.connect(),
@@ -395,6 +430,35 @@ impl Atlas {
                     .map_err(|_| format!("Unknown IANA timezone: {key}"))?;
             }
         }
+        for (key, maximum) in [
+            ("workspaceCommuteMinutes", 240),
+            ("minimumTransferMinutes", 1440),
+        ] {
+            if let Some(value) = r
+                .get(key)
+                .filter(|v| !v.is_null() && v.as_str() != Some(""))
+            {
+                if value.as_i64().is_none_or(|v| !(0..=maximum).contains(&v)) {
+                    return Err(format!(
+                        "{key} must be a whole number between 0 and {maximum}"
+                    ));
+                }
+            }
+        }
+        if let Some(hours) = r.get("workspaceHours").filter(|v| !v.is_null()) {
+            for key in ["start", "end"] {
+                chrono::NaiveTime::parse_from_str(string(hours, key), "%H:%M")
+                    .map_err(|_| "Workspace hours require both opening and closing times")?;
+            }
+            if let Some(days) = hours.get("weekdays") {
+                if days.as_array().is_none_or(|d| {
+                    d.iter()
+                        .any(|n| n.as_i64().is_none_or(|v| !(1..=7).contains(&v)))
+                }) {
+                    return Err("Workspace weekdays must be 1 (Monday) through 7 (Sunday)".into());
+                }
+            }
+        }
         for key in ["date", "checkIn", "checkOut"] {
             if let Some(date) = r.get(key).and_then(Value::as_str).filter(|s| !s.is_empty()) {
                 parse_date(date)?;
@@ -445,7 +509,17 @@ impl Atlas {
                     chrono::NaiveTime::parse_from_str(string(r, key), "%H:%M")
                         .map_err(|_| format!("{key} must be HH:MM"))?;
                 }
-                for field in ["refrigerator", "workspace", "internet", "kitchen"] {
+                for field in [
+                    "refrigerator",
+                    "workspace",
+                    "internet",
+                    "kitchen",
+                    "quiet",
+                    "power",
+                    "private",
+                    "scenic",
+                    "utilitiesIncluded",
+                ] {
                     if let Some(v) = r.get("facilities").and_then(|f| f.get(field)) {
                         if !v.is_boolean() && !v.is_null() {
                             return Err("Facilities must be true, false, or unknown (null)".into());
@@ -957,7 +1031,8 @@ impl Atlas {
                 format!(".{extension}")
             }
         );
-        let parseable = ["txt", "eml", "ics", "pdf"].contains(&extension.as_str());
+        let parseable = payload["attachOnly"] != true
+            && ["txt", "eml", "ics", "pdf"].contains(&extension.as_str());
         let parsed = if parseable {
             Some(imports::parse_file(filename, &bytes)?)
         } else {
@@ -1099,7 +1174,10 @@ impl Atlas {
         let manifest: Value =
             serde_json::from_slice(&fs::read(path.join("manifest.json")).map_err(error)?)
                 .map_err(error)?;
-        if manifest["schemaVersion"].as_i64() != Some(SCHEMA_VERSION) {
+        let backup_version = manifest["schemaVersion"]
+            .as_i64()
+            .ok_or("Backup schema is missing")?;
+        if !(1..=SCHEMA_VERSION).contains(&backup_version) {
             return Err(
                 "Backup schema differs from this app; use the matching application version.".into(),
             );
@@ -1113,6 +1191,12 @@ impl Atlas {
             rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
         )
         .map_err(error)?;
+        let stored_version: i64 = backup_db
+            .query_row("PRAGMA user_version", [], |r| r.get(0))
+            .map_err(error)?;
+        if stored_version != backup_version {
+            return Err("Backup schema metadata does not match its database".into());
+        }
         let check: String = backup_db
             .query_row("PRAGMA integrity_check", [], |r| r.get(0))
             .map_err(error)?;
@@ -1147,6 +1231,18 @@ impl Atlas {
                 None::<fn(rusqlite::backup::Progress)>,
             )
             .map_err(error)?;
+        if backup_version < SCHEMA_VERSION {
+            self.db
+                .backup(
+                    rusqlite::DatabaseName::Main,
+                    self.data_dir
+                        .join("backups")
+                        .join(format!("pre-migration-v{backup_version}-{}.sqlite3", id())),
+                    None,
+                )
+                .map_err(error)?;
+            migrate(&self.db)?;
+        }
         for doc in documents {
             let name = string(&doc, "storageName");
             fs::copy(

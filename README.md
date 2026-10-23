@@ -5,9 +5,10 @@ and money. The native desktop application uses Tauri 2, React/TypeScript, Rust
 services, and SQLite. An optional paired phone companion shares the same service
 boundary and keeps an explicit offline edit queue.
 
-**Version 0.2.0: development preview.** The neutral dark interface uses a bottom
-dock and full-width calendar, with contextual details and Settings in temporary
-interfaces. See [v0.2 validation and manual upgrades](docs/VALIDATION-v0.2.md)
+**Version 0.3.0: development preview.** The neutral dark interface keeps its
+bottom dock and adds full-page Settings, persistent Assistant chats, actionable
+notifications and travel-planning tools. Numbers use Times New Roman with local
+serif fallbacks. See [v0.3 validation and upgrades](docs/VALIDATION-v0.3.md)
 and [feature status](docs/FEATURES.md)
 for implemented behavior and the account, hardware, and release checks that have
 not been performed. A workflow or connector definition is not a verified release.
@@ -63,10 +64,11 @@ credentials use the OS secret store and fail closed if it is unavailable.
 - [iPhone companion, pairing and private HTTPS](docs/COMPANION.md)
 - [Optional local inference and verified models](docs/AI.md)
 - [Recurring objectives and work blocks](docs/RECURRENCE.md)
+- [Version 0.3 release notes](docs/RELEASE-NOTES-v0.3.md)
 - [Release packaging and signed updates](docs/RELEASE.md)
 - [Application service contract](docs/SERVICE-CONTRACT.md)
 - [Validation and feature status](docs/FEATURES.md)
-- [Tested builds and artifact evidence](docs/VALIDATION.md)
+- [Tested builds and artifact evidence](docs/VALIDATION-v0.3.md)
 
 No application license has been selected. Public repository visibility does not
 grant a software license. Third-party components retain their own licenses and

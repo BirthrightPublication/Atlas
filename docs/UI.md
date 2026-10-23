@@ -5,55 +5,34 @@ calculations. Native windows use Tauri IPC. Development uses Vite's loopback
 proxy to the authenticated host in development mode. There is no mock database
 fallback when the service is unavailable.
 
-Version 0.2 uses `src/theme.css` for the common neutral palette and `src/shell.css`
+Version 0.3 retains `src/theme.css` for the common neutral palette and `src/shell.css`
 for the native desktop layout. The header, scrollable workspace and bottom dock
 occupy separate grid rows, so content cannot disappear beneath navigation.
 Calendar, Discover, Map and Budget keep their full content width. Switching
 modules starts at the top of the destination workspace. Safe-area insets protect
 the dock on compact displays.
 
-The Settings gear exists only at the dock's far right. Settings and other
-temporary dialogs keep keyboard focus inside, close with Escape and restore
-focus to the launcher. Settings categories use arrow-key navigation. Only
-changed preference keys are saved; unrelated connector changes are preserved.
-Clocks update within their own component instead of rerendering the calendar
-every 30 seconds. There are no backdrop blurs or decorative animated effects.
+The gear at the dock's right opens a full Settings page. Its ten categories use
+arrow-key navigation. Leaving dirty settings offers Save and continue, Discard
+and continue, or Keep editing. Only changed preference keys are persisted.
 
-Selected-day clocks, office status, work rules, allowance and accommodation gaps
-remain in expandable summaries below Calendar. The assistant opens from the
-header. Import booking and its review count remain in Calendar/Budget actions.
+Notifications, Updates and Atlas Assistant share a nonmodal right panel. At wide
+sizes the main content contracts; compact windows use an overlay above the dock.
+Same-button toggling, direct switching, Escape and explicit close are supported.
+Panels retain local state across module navigation, scroll independently and
+load their code only on first use. Other entry/import dialogs retain focus traps.
 
-Calendar supports month, agenda, day, and journey views. Phone widths switch to
-an agenda rather than shrinking month cells. Stays occupy continuous night bands;
-objectives and protected work appear below them; transport markers remain compact.
-On Foot and On Road only change creation defaults. Recurring records are expanded
-by the Rust service and editing an occurrence edits the original series.
+Assistant conversations and notification state are stored in SQLite. Responses
+use context references and deterministic services; the optional model's actual
+availability is reported separately. All result navigation uses local typed
+module/date/record targets with missing-record handling. No URL can become an
+internal command. Updates installs only through Tauri's trusted signed updater;
+release history is informational. Unsaved Settings or open record forms disable
+installation until the user saves or closes them.
 
-The import inbox accepts text, URLs, EML, text-bearing PDF, and ICS. An explicit
-synthetic sample demonstrates the cross-month acceptance case. Drafts preserve
-unknowns and evidence. The user reviews fields before accepting. Optional verified
-local inference runs only from an explicit extraction action after ordinary parsing.
-
-Budget totals come from the exact application service. Month-of-use, cash-flow,
-and available-cash views are separate. Cash projection displays remaining flexible
-allowance and reserve deductions; warnings identify missing payment schedules and
-currency bases. A date-range calculator exposes its denominator.
-
-The website library contains prepared links with an honest capability label. It is
-editable, and individual saved places and offers are separate records. Saved offers
-can be compared using date-specific totals, fees, freshness, and verified facilities.
-The Map view is a local location directory; external mapping providers supply live
-maps and directions. No background scraping or live route data is implied.
-
-Settings include named personal presets, configurable work rules, office/current
-timezones, optional fixed offsets, protected local-day windows, provider connection
-setup, backups, local model configuration, and native companion pairing controls.
-Personal preferences are user data, not public seed fixtures. Gmail/Outlook and
-Proton Bridge/IMAP are explicitly disconnected until successfully authorized.
-
-The desktop app starts update checks and refreshes local data when native import
-and reminder events arrive. Updating asks users to save open edits. Signed update
-configuration is required before the native updater can install an update.
+Digits use a local-only Unicode font face selecting Times New Roman, then
+Liberation Serif/Times. Letter typography and theme tokens remain unchanged.
+No proprietary font is bundled or downloaded.
 
 ## Verification
 

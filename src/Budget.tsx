@@ -13,6 +13,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { AtlasRecord, money, prettyDate, rpc } from "./api";
+import { BudgetScenario } from "./Planning";
 
 export function Budget({
   records,
@@ -93,7 +94,7 @@ export function Budget({
           </small>
         </div>
         <div className="metric">
-          <span>AVERAGE PER CALENDAR DAY</span>
+          <span>TOTAL PLANNED COST PER DAY</span>
           <strong>{money(summary?.dailyForecastMinor, currency)}</strong>
           <small>
             Forecast ÷ {summary?.daysInMonth || "—"} days this month
@@ -108,6 +109,30 @@ export function Budget({
           </small>
         </div>
       </div>
+      <div className="budget-daily-details" aria-label="Daily budget details">
+        <p>
+          Accommodation per night:{" "}
+          <strong className="numeric">
+            {money(summary?.nightlyAccommodationMinor, currency)}
+          </strong>{" "}
+          across {summary?.occupiedNights ?? "—"} occupied nights.
+        </p>
+        <p>
+          Projected available funds:{" "}
+          <strong className="numeric">
+            {money(summary?.availableMinor, currency)}
+          </strong>{" "}
+          after scheduled cash flow, remaining allowance and{" "}
+          {money(summary?.reserveMinor, currency)} reserve.
+        </p>
+        <p>
+          Flexible spending: {money(summary?.allowanceSpentMinor, currency)}{" "}
+          recorded · {money(summary?.allowanceCommittedMinor, currency)}{" "}
+          committed · {money(summary?.allowanceRemainingMinor, currency)}{" "}
+          remaining. Recorded expenses are deducted once.
+        </p>
+      </div>
+      <BudgetScenario records={records} month={month} currency={currency} />
       <div className="subnav">
         <div className="segmented">
           {["Month of use", "Cash flow", "Available cash"].map((v) => (

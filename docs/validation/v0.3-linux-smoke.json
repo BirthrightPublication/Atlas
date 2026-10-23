@@ -1,0 +1,22 @@
+{
+  "version": "0.3.0",
+  "source": "79215a1e8bb045cbc80d5022b06e7daa24c86e70",
+  "package": "Birthright-Atlas_0.3.0_linux_x86_64.AppImage",
+  "sha256": "d6f19e543cf2d7db458e5f0ecd858f5d37f93eb66854e9513471dbadf30fd873",
+  "nativeWindowLaunches": 3,
+  "cleanWindowCloses": 3,
+  "exitCodes": [
+    0,
+    0,
+    0
+  ],
+  "originalV02RecordsUnchanged": 6,
+  "documentsUnchanged": 1,
+  "schema": 4,
+  "integrity": "ok",
+  "createdViaNativeUI": "How does Atlas store my data?",
+  "conversationAndNotificationStateRetainedExactly": true,
+  "fullSettingsPageAndIndependentPanelInspected": true,
+  "webkitSandbox": "enabled; no disabling flags or variables used",
+  "environment": "Debian 13, Xvfb and read-only GTK/WebKit SDK namespace"
+}

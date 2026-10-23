@@ -7,15 +7,16 @@ use std::time::Duration;
 use tauri::{Emitter, Manager, State};
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_opener::OpenerExt;
-use tauri_plugin_updater::{Update, UpdaterExt};
+mod updates;
+use updates::{update_install, update_status, UpdateState};
+#[cfg(feature = "update-smoke")]
+mod update_smoke;
 
 mod companion;
 use companion::CompanionState;
 
 #[derive(Clone)]
 struct AtlasState(Arc<Mutex<Atlas>>);
-#[derive(Default)]
-struct UpdateState(Mutex<Option<Update>>);
 
 #[tauri::command]
 async fn atlas_call(
@@ -44,6 +45,9 @@ async fn atlas_call(
     let atlas = state.0.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let payload = payload.unwrap_or_else(|| json!({}));
+        if method == "releases.history" {
+            return atlas_core::releases::query(&atlas, &payload);
+        }
         if method == "ai.extract" {
             let settings = atlas
                 .lock()
@@ -78,87 +82,6 @@ fn open_external(app: tauri::AppHandle, url: String) -> Result<(), String> {
         .map_err(|_| "Could not open the system browser".into())
 }
 
-#[tauri::command]
-async fn update_status(
-    app: tauri::AppHandle,
-    state: State<'_, UpdateState>,
-) -> Result<Value, String> {
-    let current = app.package_info().version.to_string();
-    if cfg!(target_os = "linux") && std::env::var_os("APPIMAGE").is_none() {
-        return Ok(
-            json!({"configured":false,"available":false,"currentVersion":current,
-            "reason":"Automatic Linux updates require the AppImage edition. Install a verified Debian package manually."}),
-        );
-    }
-    let (Some(key), Some(endpoint)) = (
-        option_env!("ATLAS_UPDATE_PUBLIC_KEY"),
-        option_env!("ATLAS_UPDATE_ENDPOINT"),
-    ) else {
-        return Ok(
-            json!({"configured": false, "available": false, "currentVersion":current,
-            "reason":"Signed updates are not configured for this build. Install a verified release manually."}),
-        );
-    };
-    let parsed = url::Url::parse(endpoint).map_err(|_| "Invalid compiled update endpoint")?;
-    if parsed.scheme() != "https" || key.trim().is_empty() {
-        return Err("Updates require an HTTPS feed and a verification public key".into());
-    }
-    let update = app
-        .updater_builder()
-        .pubkey(key)
-        .endpoints(vec![parsed])
-        .map_err(|_| "Invalid update configuration")?
-        .timeout(Duration::from_secs(30))
-        .build()
-        .map_err(|_| "Could not initialize signed updater")?
-        .check()
-        .await
-        .map_err(|_| "Could not check for updates; saved data remains available offline")?;
-    let response = match &update {
-        Some(update) => json!({"configured":true,"available":true,"currentVersion":current,
-            "version":update.version,"notes":update.body}),
-        None => json!({"configured":true,"available":false,"currentVersion":current}),
-    };
-    *state.0.lock().map_err(|_| "Updater unavailable")? = update;
-    Ok(response)
-}
-
-#[tauri::command]
-async fn update_install(
-    app: tauri::AppHandle,
-    atlas: State<'_, AtlasState>,
-    updates: State<'_, UpdateState>,
-) -> Result<(), String> {
-    if cfg!(target_os = "linux") && std::env::var_os("APPIMAGE").is_none() {
-        return Err(
-            "Install a verified Debian package manually; automatic Linux updates require AppImage"
-                .into(),
-        );
-    }
-    let update = updates
-        .0
-        .lock()
-        .map_err(|_| "Updater unavailable")?
-        .clone()
-        .ok_or("Check for a signed update before installing")?;
-    let service = atlas.0.clone();
-    // UI asks the owner to save the open form before invoking this command.
-    tauri::async_runtime::spawn_blocking(move || {
-        service
-            .lock()
-            .map_err(|_| "Application service unavailable")?
-            .call("backup.export", json!({}))
-    })
-    .await
-    .map_err(|_| "Backup worker interrupted")??;
-    let progress = app.clone();
-    update.download_and_install(
-        move |chunk, total| { let _ = progress.emit("atlas:update-progress", json!({"chunk":chunk,"total":total})); },
-        || {},
-    ).await.map_err(|_| "Update download, signature verification, or installation failed; no unsigned fallback was used")?;
-    app.restart();
-}
-
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -171,6 +94,8 @@ fn main() {
             let atlas = Atlas::open(&data_dir).map_err(std::io::Error::other)?;
             let state = AtlasState(Arc::new(Mutex::new(atlas)));
             app.manage(state.clone());
+            #[cfg(feature = "update-smoke")]
+            update_smoke::start(app.handle().clone());
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 let mut ticks: u32 = 0;

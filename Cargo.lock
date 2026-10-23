@@ -233,7 +233,7 @@ dependencies = [
 
 [[package]]
 name = "atlas-core"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -246,6 +246,7 @@ dependencies = [
  "regex",
  "reqwest 0.12.28",
  "rusqlite",
+ "semver",
  "serde",
  "serde_json",
  "sha2",
@@ -257,9 +258,11 @@ dependencies = [
 
 [[package]]
 name = "atlas-desktop"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "atlas-core",
+ "reqwest 0.13.5",
+ "semver",
  "serde_json",
  "tauri",
  "tauri-build",
@@ -272,7 +275,7 @@ dependencies = [
 
 [[package]]
 name = "atlas-host"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "atlas-core",
  "axum",

@@ -58,21 +58,21 @@ jobs:
       - name: Stage exact artifacts
         id: stage
         run: node scripts/stage-release.mjs ${{ matrix.target }}
-      - name: Prepare verified v0.1 installer for upgrade validation
+      - name: Prepare verified v0.2 installer for upgrade validation
         if: runner.os == 'Windows'
         id: previous
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: ./scripts/prepare-windows-upgrade.ps1
-      - name: Verify Windows installation and v0.1 manual upgrade
+      - name: Verify Windows installation and v0.2 manual upgrade
         if: runner.os == 'Windows'
         shell: pwsh
-        timeout-minutes: 7
+        timeout-minutes: 45
         run: |
           $config = Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
           $installer = Join-Path $PWD "release/windows-x86_64/Birthright-Atlas_$($config.version)_windows_x86_64-setup.exe"
-          ./scripts/smoke-windows.ps1 -InstallerPath $installer -PreviousInstallerPath '${{ steps.previous.outputs.installer }}' -PreviousInstallerSha256 '${{ steps.previous.outputs.sha256 }}'
+          ./scripts/smoke-windows.ps1 -InstallerPath $installer -PreviousInstallerPath '${{ steps.previous.outputs.installer }}' -PreviousInstallerSha256 '${{ steps.previous.outputs.sha256 }}' -ControlledUpdate
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: ${{ always() && steps.stage.outcome == 'success' }}
         with:
