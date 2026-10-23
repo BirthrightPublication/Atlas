@@ -5,13 +5,13 @@ and money. The native desktop application uses Tauri 2, React/TypeScript, Rust
 services, and SQLite. An optional paired phone companion shares the same service
 boundary and keeps an explicit offline edit queue.
 
-**Version 0.3.0: development preview.** The neutral dark interface keeps its
-bottom dock and adds full-page Settings, persistent Assistant chats, actionable
-notifications and travel-planning tools. Numbers use Times New Roman with local
-serif fallbacks. See [v0.3 validation and upgrades](docs/VALIDATION-v0.3.md)
-and [feature status](docs/FEATURES.md)
-for implemented behavior and the account, hardware, and release checks that have
-not been performed. A workflow or connector definition is not a verified release.
+**Version 0.4.0: development candidate.** Connect read-only booking mailboxes,
+review reservations and revisions in the Import Center, compare saved offers,
+and check Trip Readiness. The approved neutral dark interface, bottom dock,
+persistent chats, full-page Settings and Times New Roman numerals remain.
+See [v0.4 validation](docs/VALIDATION-v0.4.md), [release notes](docs/RELEASE-NOTES-v0.4.md)
+and [feature status](docs/FEATURES.md) for actual evidence and remaining owner-side
+mailbox, device and production-signing checks. Historical validation reports remain available.
 
 ## Start development
 
@@ -64,11 +64,13 @@ credentials use the OS secret store and fail closed if it is unavailable.
 - [iPhone companion, pairing and private HTTPS](docs/COMPANION.md)
 - [Optional local inference and verified models](docs/AI.md)
 - [Recurring objectives and work blocks](docs/RECURRENCE.md)
-- [Version 0.3 release notes](docs/RELEASE-NOTES-v0.3.md)
+- [Version 0.4 release notes](docs/RELEASE-NOTES-v0.4.md)
+- [Booking imports, revisions and refunds](docs/IMPORTS.md)
+- [Saved offers, comparisons and watchlists](docs/DISCOVERY.md)
 - [Release packaging and signed updates](docs/RELEASE.md)
 - [Application service contract](docs/SERVICE-CONTRACT.md)
 - [Validation and feature status](docs/FEATURES.md)
-- [Tested builds and artifact evidence](docs/VALIDATION-v0.3.md)
+- [Tested builds and artifact evidence](docs/VALIDATION-v0.4.md)
 
 No application license has been selected. Public repository visibility does not
 grant a software license. Third-party components retain their own licenses and

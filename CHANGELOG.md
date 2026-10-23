@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.0 — booking automation and travel readiness
+
+- Add account-scoped read-only mailbox connections, guided setup, header filters,
+  configurable polling, attempt/success statistics and durable batch acknowledgments.
+- Keep mailbox network and text extraction work outside the application data lock.
+- Replace the import drawer with a focused Import Center, field-level revision
+  review, retained source evidence, atomic approval and cancellation history.
+- Track refund announcements separately from verified full or partial receipts.
+- Add contextual Trip Readiness, opt-in booking reminder rules and recalculation
+  that retains snooze/dismiss decisions.
+- Compare saved stay and transport offers, preview exact budget scenarios, prepare
+  provider searches from preceding plans, and save manual watchlist snapshots.
+- Extend deterministic Assistant responses and notifications with these services.
+- Migrate schema 4 to 5 with a retained backup; preserve credential-store keys and
+  companion identity. Extend Windows manual and controlled signed upgrade checks.
+
 ## 0.3.0 — integrated travel planning preview
 
 - Make Settings a full workspace page with explicit save/discard navigation.

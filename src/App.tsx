@@ -51,6 +51,7 @@ import {
 } from "./api";
 import { Calendar } from "./Calendar";
 import { RecordForm, newRecord } from "./RecordForm";
+import { Readiness } from "./Readiness";
 import { ImportPanel } from "./Imports";
 import { Discover, MapView } from "./Discover";
 import { Budget } from "./Budget";
@@ -275,7 +276,10 @@ function DesktopApp() {
       setNotice("This record has been deleted or is no longer available.");
       return false;
     }
-    if (target.module) setTab(target.module);
+    if (target.module) {
+      setTab(target.module);
+      setPanel("");
+    }
     if (target.module === "Settings") {
       setSettingsVisited(true);
       setSettingsCategory(target.settingsCategory || "General");
@@ -307,6 +311,7 @@ function DesktopApp() {
       setSelected(record);
       setContextRecordId(record.id);
     } else if (target.action === "imports") setPanel("imports");
+    else if (target.action === "readiness") setPanel("readiness");
     if (target.action === "work") {
       setView("day");
       requestAnimationFrame(() => {
@@ -502,326 +507,379 @@ function DesktopApp() {
         )}
         <div className={`workspace-layout ${utility ? "utility-open" : ""}`}>
           <div className="workspace-content" ref={workspace}>
-            {(tab === "Calendar" || tab === "Budget") && (
-              <div className="calendar-toolbar">
-                <div className="month-title">
-                  <div>
-                    <h1>
-                      {dateOf(`${month}-01`).toLocaleDateString("en", {
-                        month: "long",
-                      })}
-                      <span>{month.slice(0, 4)}</span>
-                    </h1>
-                    <div className="month-navigation">
-                      <button
-                        className="icon-button"
-                        title="Previous month"
-                        aria-label="Previous month"
-                        onClick={() => changeMonth(-1)}
-                      >
-                        <ChevronLeft size={17} />
-                      </button>
-                      <button
-                        className="icon-button"
-                        title="Next month"
-                        aria-label="Next month"
-                        onClick={() => changeMonth(1)}
-                      >
-                        <ChevronRight size={17} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <div className="calendar-toolbar-actions">
-                  <button
-                    className="secondary import-button"
-                    title="Import a booking or review the import inbox"
-                    onClick={() => setPanel("imports")}
-                  >
-                    <ArrowDownToLine size={15} />
-                    Import booking
-                    {drafts.length > 0 && (
-                      <span className="count-badge">{drafts.length}</span>
-                    )}
-                  </button>
-                  <div className="new-entry">
-                    <button
-                      className="primary"
-                      onClick={() => setNewMenu(!newMenu)}
-                      aria-expanded={newMenu}
-                      aria-controls="entry-menu"
-                    >
-                      <Plus size={17} />
-                      New entry
-                    </button>
-                    {newMenu && (
-                      <div
-                        className="entry-menu"
-                        id="entry-menu"
-                        aria-label="Create a record"
-                      >
-                        {[
-                          ["stay", "Stay", Home],
-                          ["transport", "Transport", Plane],
-                          ["objective", "Objective", Flag],
-                          ["expense", "Expense", Wallet],
-                          ["payment", "Payment", CircleDollarSign],
-                          ["reminder", "Reminder", Bell],
-                          ["workBlock", "Work block", Clock],
-                        ].map(([kind, label, Icon]) => {
-                          const I = Icon as typeof Home;
-                          return (
-                            <button
-                              key={String(kind)}
-                              onClick={() => create(String(kind))}
-                            >
-                              <I size={16} />
-                              {String(label)}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-            {tab === "Calendar" && (
-              <>
-                <div className="calendar-subtoolbar">
-                  <div className="segmented view-switch">
-                    {["month", "week", "day", "journey"].map((v) => (
-                      <button
-                        key={v}
-                        className={view === v ? "active" : ""}
-                        aria-pressed={view === v}
-                        onClick={() => setView(v)}
-                      >
-                        {v[0].toUpperCase() + v.slice(1)}
-                      </button>
-                    ))}
-                  </div>
-                  <span className="spacer" />
-                  <button
-                    className="text-button muted export-button"
-                    title="Export calendar"
-                    aria-label="Export calendar"
-                    onClick={exportCalendar}
-                  >
-                    <Download size={14} />
-                    Export calendar
-                  </button>
-                  <button
-                    className="today-button"
-                    onClick={() => {
-                      setMonth(today.slice(0, 7));
-                      setSelectedDate(today);
-                    }}
-                  >
-                    Today
-                  </button>
-                </div>
-                <div className="calendar-layout">
-                  <section className="calendar-main">
-                    <Calendar
-                      records={
-                        calendarRecords.length ? calendarRecords : records
-                      }
-                      month={month}
-                      selectedDate={selectedDate}
-                      view={view}
-                      onSelect={select}
-                      onDay={(d) => {
-                        setSelectedDate(d);
-                        if (
-                          view !== "month" ||
-                          window.matchMedia("(max-width:600px)").matches
-                        )
-                          setMonth(d.slice(0, 7));
-                      }}
-                      onCreate={create}
-                    />
-                  </section>
-                </div>
-                <GapReview
-                  records={records}
-                  month={month}
-                  journey={view === "journey"}
-                  onCreate={create}
-                  onNavigate={navigate}
-                />
-                <section
-                  className="day-context"
-                  aria-label="Selected day information"
-                >
-                  <details className="context-section">
-                    <summary>
-                      <Clock size={16} />
-                      <span>Clocks & work</span>
-                      <small>
-                        {work?.isWorkday === false
-                          ? "Office day off"
-                          : `${work?.requiredHours ?? 8}h work · ${work?.minOverlapHours ?? 4}h overlap`}
-                      </small>
-                      <ChevronRight size={14} />
-                    </summary>
-                    <div className="context-details">
-                      <Clocks
-                        localZone={currentZone}
-                        officeZone={officeZone}
-                        settings={settings}
-                      />
-                      <div className="rail-section">
-                        <h3>{prettyDate(selectedDate)} · Work schedule</h3>
-                        <WorkWindow
-                          work={work}
-                          stay={currentStay}
-                          date={selectedDate}
-                        />
-                        {work?.suggestedBlocks?.map(
-                          (block: any, index: number) => (
-                            <button
-                              className="secondary"
-                              key={index}
-                              onClick={() =>
-                                create("workBlock", selectedDate, {
-                                  name: "Proposed work block",
-                                  start: block.start,
-                                  end: block.end,
-                                  startTime: block.localStart.slice(11, 16),
-                                  endTime: block.localEnd.slice(11, 16),
-                                  timezone:
-                                    currentStay?.timezone || currentZone,
-                                })
-                              }
-                            >
-                              Draft work: {block.localStart.slice(11, 16)}–
-                              {block.localEnd.slice(11, 16)} local
-                            </button>
-                          ),
-                        )}
-                        <button
-                          className="text-button"
-                          onClick={() => create("workBlock")}
-                        >
-                          Protect a work block <Plus size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  </details>
-                  <details className="context-section">
-                    <summary>
-                      <Wallet size={16} />
-                      <span>Daily allowance</span>
-                      <small>
-                        {money(summary?.dailyAllowanceMinor, currency)} / day
-                      </small>
-                      <ChevronRight size={14} />
-                    </summary>
-                    <div className="context-details compact">
-                      <p>
-                        {summary?.remainingDays ?? "—"} remaining eligible days
-                        after committed and recorded spending.
-                      </p>
-                      <button
-                        className="text-button"
-                        onClick={() => setTab("Budget")}
-                      >
-                        Open budget <ArrowUpRight size={14} />
-                      </button>
-                    </div>
-                  </details>
-                  <details className="context-section">
-                    <summary>
-                      <Home size={16} />
-                      <span>Accommodation</span>
-                      <small>
-                        {currentStay
-                          ? currentStay.name
-                          : records.some((r) => travelNight(r, selectedDate))
-                            ? "Traveling overnight"
-                            : "No confirmed stay"}
-                      </small>
-                      <ChevronRight size={14} />
-                    </summary>
-                    <div className="context-details compact">
-                      <GapNote
-                        records={records}
-                        date={selectedDate}
-                        onCreate={() => create("stay")}
-                      />
-                      {currentStay && (
-                        <button
-                          className="text-button"
-                          onClick={() => select(currentStay)}
-                        >
-                          View {currentStay.name} <ArrowUpRight size={14} />
-                        </button>
-                      )}
-                    </div>
-                  </details>
-                </section>
-              </>
-            )}
-            {tab === "Discover" && (
-              <Discover
+            {panel === "readiness" && (
+              <Readiness
+                date={selectedDate}
                 records={records}
-                settings={settings}
+                onClose={() => setPanel("")}
+                onNavigate={navigate}
                 onCreate={create}
-                onSelect={select}
                 onRefresh={refresh}
-                onSettings={() =>
-                  navigate({
-                    module: "Settings",
-                    settingsCategory: "Travel Preferences",
-                  })
-                }
               />
             )}
-            {tab === "Map" && (
-              <MapView records={records} onCreate={create} onSelect={select} />
-            )}
-            {tab === "Budget" && (
-              <Budget
-                records={records}
-                summary={summary}
-                month={month}
-                currency={currency}
-                onCreate={create}
+            {panel === "imports" && (
+              <ImportPanel
+                onConnections={() =>
+                  navigate({
+                    module: "Settings",
+                    settingsCategory: "Email & Integrations",
+                  })
+                }
                 onSelect={select}
-                onEditBudget={() => {
-                  const record =
-                    records.find(
-                      (r) =>
-                        r.kind === "budget" &&
-                        r.month === month &&
-                        r.currency === currency,
-                    ) || newRecord("budget", `${month}-01`, settings);
-                  setSelected({ ...record, id: record.id || "", _edit: true });
+                records={records}
+                onClose={() => setPanel("")}
+                onRefresh={refresh}
+                onReview={(draft) => {
+                  const record = draft.record || draft.candidate || {};
+                  setImportId(draft.id);
+                  setSelected({
+                    ...newRecord(record.kind || "stay", selectedDate, settings),
+                    ...record,
+                    id: record.id || "",
+                  });
+                  setPanel("imports");
                 }}
               />
             )}
-            {settingsVisited && (
-              <div hidden={tab !== "Settings"}>
-                <SettingsPanel
-                  settings={settings}
-                  initialCategory={settingsCategory}
-                  updates={
+
+            <div hidden={panel === "imports" || panel === "readiness"}>
+              {(tab === "Calendar" || tab === "Budget") && (
+                <div className="calendar-toolbar">
+                  <div className="month-title">
+                    <div>
+                      <h1>
+                        {dateOf(`${month}-01`).toLocaleDateString("en", {
+                          month: "long",
+                        })}
+                        <span>{month.slice(0, 4)}</span>
+                      </h1>
+                      <div className="month-navigation">
+                        <button
+                          className="icon-button"
+                          title="Previous month"
+                          aria-label="Previous month"
+                          onClick={() => changeMonth(-1)}
+                        >
+                          <ChevronLeft size={17} />
+                        </button>
+                        <button
+                          className="icon-button"
+                          title="Next month"
+                          aria-label="Next month"
+                          onClick={() => changeMonth(1)}
+                        >
+                          <ChevronRight size={17} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="calendar-toolbar-actions">
                     <button
-                      className="secondary"
-                      onClick={() => openUtility("updates")}
+                      className="secondary import-button"
+                      title="Import a booking or review the import inbox"
+                      onClick={() => setPanel("imports")}
                     >
-                      Open Updates panel
+                      <ArrowDownToLine size={15} />
+                      Import booking
+                      {drafts.length > 0 && (
+                        <span className="count-badge">{drafts.length}</span>
+                      )}
                     </button>
-                  }
-                  onNotifications={() => openUtility("notifications")}
-                  onBudget={() => navigate({ module: "Budget" })}
-                  controller={settingsController}
-                  onDirtyChange={setSettingsDirty}
+                    <div className="new-entry">
+                      <button
+                        className="primary"
+                        onClick={() => setNewMenu(!newMenu)}
+                        aria-expanded={newMenu}
+                        aria-controls="entry-menu"
+                      >
+                        <Plus size={17} />
+                        New entry
+                      </button>
+                      {newMenu && (
+                        <div
+                          className="entry-menu"
+                          id="entry-menu"
+                          aria-label="Create a record"
+                        >
+                          {[
+                            ["stay", "Stay", Home],
+                            ["transport", "Transport", Plane],
+                            ["objective", "Objective", Flag],
+                            ["expense", "Expense", Wallet],
+                            ["payment", "Payment", CircleDollarSign],
+                            ["reminder", "Reminder", Bell],
+                            ["workBlock", "Work block", Clock],
+                          ].map(([kind, label, Icon]) => {
+                            const I = Icon as typeof Home;
+                            return (
+                              <button
+                                key={String(kind)}
+                                onClick={() => create(String(kind))}
+                              >
+                                <I size={16} />
+                                {String(label)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {tab === "Calendar" && (
+                <>
+                  <div className="calendar-subtoolbar">
+                    <button
+                      className="text-button"
+                      onClick={() => setPanel("readiness")}
+                    >
+                      Trip Readiness
+                    </button>
+                    <div className="segmented view-switch">
+                      {["month", "week", "day", "journey"].map((v) => (
+                        <button
+                          key={v}
+                          className={view === v ? "active" : ""}
+                          aria-pressed={view === v}
+                          onClick={() => setView(v)}
+                        >
+                          {v[0].toUpperCase() + v.slice(1)}
+                        </button>
+                      ))}
+                    </div>
+                    <span className="spacer" />
+                    <button
+                      className="text-button muted export-button"
+                      title="Export calendar"
+                      aria-label="Export calendar"
+                      onClick={exportCalendar}
+                    >
+                      <Download size={14} />
+                      Export calendar
+                    </button>
+                    <button
+                      className="today-button"
+                      onClick={() => {
+                        setMonth(today.slice(0, 7));
+                        setSelectedDate(today);
+                      }}
+                    >
+                      Today
+                    </button>
+                  </div>
+                  <div className="calendar-layout">
+                    <section className="calendar-main">
+                      <Calendar
+                        records={
+                          calendarRecords.length ? calendarRecords : records
+                        }
+                        month={month}
+                        selectedDate={selectedDate}
+                        view={view}
+                        onSelect={select}
+                        onDay={(d) => {
+                          setSelectedDate(d);
+                          if (
+                            view !== "month" ||
+                            window.matchMedia("(max-width:600px)").matches
+                          )
+                            setMonth(d.slice(0, 7));
+                        }}
+                        onCreate={create}
+                      />
+                    </section>
+                  </div>
+                  <GapReview
+                    records={records}
+                    month={month}
+                    journey={view === "journey"}
+                    onCreate={create}
+                    onNavigate={navigate}
+                  />
+                  <section
+                    className="day-context"
+                    aria-label="Selected day information"
+                  >
+                    <details className="context-section">
+                      <summary>
+                        <Clock size={16} />
+                        <span>Clocks & work</span>
+                        <small>
+                          {work?.isWorkday === false
+                            ? "Office day off"
+                            : `${work?.requiredHours ?? 8}h work · ${work?.minOverlapHours ?? 4}h overlap`}
+                        </small>
+                        <ChevronRight size={14} />
+                      </summary>
+                      <div className="context-details">
+                        <Clocks
+                          localZone={currentZone}
+                          officeZone={officeZone}
+                          settings={settings}
+                        />
+                        <div className="rail-section">
+                          <h3>{prettyDate(selectedDate)} · Work schedule</h3>
+                          <WorkWindow
+                            work={work}
+                            stay={currentStay}
+                            date={selectedDate}
+                          />
+                          {work?.suggestedBlocks?.map(
+                            (block: any, index: number) => (
+                              <button
+                                className="secondary"
+                                key={index}
+                                onClick={() =>
+                                  create("workBlock", selectedDate, {
+                                    name: "Proposed work block",
+                                    start: block.start,
+                                    end: block.end,
+                                    startTime: block.localStart.slice(11, 16),
+                                    endTime: block.localEnd.slice(11, 16),
+                                    timezone:
+                                      currentStay?.timezone || currentZone,
+                                  })
+                                }
+                              >
+                                Draft work: {block.localStart.slice(11, 16)}–
+                                {block.localEnd.slice(11, 16)} local
+                              </button>
+                            ),
+                          )}
+                          <button
+                            className="text-button"
+                            onClick={() => create("workBlock")}
+                          >
+                            Protect a work block <Plus size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    </details>
+                    <details className="context-section">
+                      <summary>
+                        <Wallet size={16} />
+                        <span>Daily allowance</span>
+                        <small>
+                          {money(summary?.dailyAllowanceMinor, currency)} / day
+                        </small>
+                        <ChevronRight size={14} />
+                      </summary>
+                      <div className="context-details compact">
+                        <p>
+                          {summary?.remainingDays ?? "—"} remaining eligible
+                          days after committed and recorded spending.
+                        </p>
+                        <button
+                          className="text-button"
+                          onClick={() => setTab("Budget")}
+                        >
+                          Open budget <ArrowUpRight size={14} />
+                        </button>
+                      </div>
+                    </details>
+                    <details className="context-section">
+                      <summary>
+                        <Home size={16} />
+                        <span>Accommodation</span>
+                        <small>
+                          {currentStay
+                            ? currentStay.name
+                            : records.some((r) => travelNight(r, selectedDate))
+                              ? "Traveling overnight"
+                              : "No confirmed stay"}
+                        </small>
+                        <ChevronRight size={14} />
+                      </summary>
+                      <div className="context-details compact">
+                        <GapNote
+                          records={records}
+                          date={selectedDate}
+                          onCreate={() => create("stay")}
+                        />
+                        {currentStay && (
+                          <button
+                            className="text-button"
+                            onClick={() => select(currentStay)}
+                          >
+                            View {currentStay.name} <ArrowUpRight size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </details>
+                  </section>
+                </>
+              )}
+              {tab === "Discover" && (
+                <Discover
+                  onImports={() => setPanel("imports")}
+                  records={records}
+                  settings={settings}
+                  onCreate={create}
+                  onSelect={select}
                   onRefresh={refresh}
+                  onSettings={() =>
+                    navigate({
+                      module: "Settings",
+                      settingsCategory: "Travel Preferences",
+                    })
+                  }
                 />
-              </div>
-            )}
+              )}
+              {tab === "Map" && (
+                <MapView
+                  records={records}
+                  onCreate={create}
+                  onSelect={select}
+                />
+              )}
+              {tab === "Budget" && (
+                <Budget
+                  records={records}
+                  summary={summary}
+                  month={month}
+                  currency={currency}
+                  onCreate={create}
+                  onSelect={select}
+                  onEditBudget={() => {
+                    const record =
+                      records.find(
+                        (r) =>
+                          r.kind === "budget" &&
+                          r.month === month &&
+                          r.currency === currency,
+                      ) || newRecord("budget", `${month}-01`, settings);
+                    setSelected({
+                      ...record,
+                      id: record.id || "",
+                      _edit: true,
+                    });
+                  }}
+                />
+              )}
+              {settingsVisited && (
+                <div hidden={tab !== "Settings"}>
+                  <SettingsPanel
+                    onImports={() => navigate({ action: "imports" })}
+                    settings={settings}
+                    initialCategory={settingsCategory}
+                    updates={
+                      <button
+                        className="secondary"
+                        onClick={() => openUtility("updates")}
+                      >
+                        Open Updates panel
+                      </button>
+                    }
+                    onNotifications={() => openUtility("notifications")}
+                    onBudget={() => navigate({ module: "Budget" })}
+                    controller={settingsController}
+                    onDirtyChange={setSettingsDirty}
+                    onRefresh={refresh}
+                  />
+                </div>
+              )}
+            </div>
           </div>
           <RightPanel active={utility} onClose={() => setUtility(null)}>
             <Suspense fallback={<p>Opening panel…</p>}>
@@ -905,23 +963,6 @@ function DesktopApp() {
           onSaved={saveHandler}
           onClose={close}
           importId={importId}
-        />
-      )}
-      {panel === "imports" && (
-        <ImportPanel
-          records={records}
-          onClose={() => setPanel("")}
-          onRefresh={refresh}
-          onReview={(draft) => {
-            const record = draft.record || draft.candidate || {};
-            setImportId(draft.id);
-            setSelected({
-              ...newRecord(record.kind || "stay", selectedDate, settings),
-              ...record,
-              id: record.id || "",
-            });
-            setPanel("");
-          }}
         />
       )}
       {pendingTarget && (

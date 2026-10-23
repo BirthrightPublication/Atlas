@@ -195,3 +195,36 @@ listed above were successfully read on 2026-10-22 after environment networking
 was updated. Earlier proxy CONNECT 403 failures no longer describe the outcome
 of those documentation checks. Reading documentation does not establish live
 account authorization, provider approval, or successful mailbox synchronization.
+
+
+## v0.4 account setup and filters
+
+Open Settings → Email & Integrations. Select an existing account or Add account,
+then follow Provider & permissions, Authorize & test, Filters & start date, and
+Sync & review. Save configuration before connecting. Gmail/Outlook complete the
+system-browser consent flow; Atlas verifies actual mailbox API access before
+reporting Connected. Proton/IMAP checks TLS authentication and EXAMINE on the
+selected mailbox. A connection error is visible and reconnect is explicit.
+
+Choose a booking-only folder/mailbox for stricter practical separation. Approved
+addresses and exact domains form one allowlist. Excluded addresses take priority.
+Each enabled subject/reservation keyword group requires at least one subject
+match. After is inclusive and Before is exclusive for local header filtering;
+invalid dates fail closed. Gmail can additionally use its own search query/label.
+Outlook accepts a folder ID or well-known folder name. Retrieval filters never
+narrow the OAuth authorization grant. Unrelated full messages are not retained.
+
+Sync intervals are 5–1440 minutes while Atlas runs. Sync Now, pause/resume,
+last attempt, last successful sync, examined message count, booking candidates
+and newly created review drafts are visible in Sync & review. Counts describe
+the most recent completed batch. More pages are caught up on subsequent syncs.
+A failed batch retains its cursor; replay deduplicates saved drafts. Changing
+filters requires the in-flight batch to finish, then restarts the scan safely.
+Disconnect deletes protected credentials and keeps imported local records.
+
+Accounts have independent metadata and credential-store keys. Do not move an
+account metadata directory manually: its protected-storage identity is tied to
+the profile location. The original v0.3 profile identity is preserved on upgrade.
+No live Gmail, Microsoft, Proton Bridge or IMAP authorization was performed in
+the cloud validation environment. Complete that check in the native application,
+without sharing credentials in chat or GitHub.

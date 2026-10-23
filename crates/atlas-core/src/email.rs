@@ -30,6 +30,10 @@ const DEFAULT_QUERY: &str =
 struct Config {
     provider: String,
     #[serde(default)]
+    label: String,
+    #[serde(default = "default_interval")]
+    sync_minutes: i64,
+    #[serde(default)]
     client_id: String,
     #[serde(default = "common")]
     tenant: String,
@@ -48,6 +52,9 @@ struct Config {
     #[serde(default)]
     filter: Filter,
 }
+fn default_interval() -> i64 {
+    5
+}
 fn common() -> String {
     "common".into()
 }
@@ -59,6 +66,16 @@ fn inbox() -> String {
 struct Filter {
     #[serde(default)]
     senders: Vec<String>,
+    #[serde(default)]
+    domains: Vec<String>,
+    #[serde(default)]
+    excluded_senders: Vec<String>,
+    #[serde(default)]
+    subject_keywords: Vec<String>,
+    #[serde(default)]
+    reservation_keywords: Vec<String>,
+    #[serde(default)]
+    before_date: Option<String>,
     #[serde(default)]
     after_date: Option<String>,
     #[serde(default)]
@@ -78,6 +95,10 @@ struct Metadata {
     cursor: Value,
     #[serde(default)]
     last_sync: Option<String>,
+    #[serde(default)]
+    last_attempt: Option<String>,
+    #[serde(default)]
+    statistics: Value,
     #[serde(default)]
     last_error: Option<String>,
     #[serde(default)]
@@ -159,12 +180,19 @@ pub struct EmailMessage {
 pub struct SyncBatch {
     pub messages: Vec<EmailMessage>,
     pub has_more: bool,
+    pub examined: usize,
     cursor: Value,
     generation: u64,
 }
 impl EmailService {
     pub fn new(data_dir: &Path) -> Result<Self, String> {
         fs::create_dir_all(data_dir).map_err(|_| "Could not create mailbox metadata directory")?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(data_dir, fs::Permissions::from_mode(0o700))
+                .map_err(|_| "Could not protect mailbox directory")?;
+        }
         let account = format!(
             "profile-{:x}",
             Sha256::digest(data_dir.to_string_lossy().as_bytes())
@@ -229,9 +257,11 @@ impl EmailService {
             "configured": c.is_some(), "connected": state.connected && present,
             "paused": state.paused, "syncing": state.syncing,
             "authorizationPending": state.authorization_pending,
-            "lastSync": state.last_sync, "lastError": state.last_error,
+            "lastSync": state.last_sync, "lastAttempt": state.last_attempt, "lastError": state.last_error,
+            "statistics": state.statistics, "syncMinutes": c.map(|v| v.sync_minutes).unwrap_or(5),
+            "connectionState": if state.authorization_pending { "connecting" } else if state.syncing { "synchronizing" } else if state.last_error.as_ref().is_some_and(|e| e.contains("401") || e.to_lowercase().contains("reconnect")) { "reauthorization required" } else if state.last_error.is_some() { "connection error" } else if !state.connected || !present { "not connected" } else if state.paused { "paused" } else { "connected" },
             "secureStorageAvailable": secure.is_ok(),
-            "provider": c.map(|v| &v.provider), "clientId": c.map(|v| &v.client_id),
+            "label": c.map(|v| &v.label), "provider": c.map(|v| &v.provider), "clientId": c.map(|v| &v.client_id),
             "tenant": c.map(|v| &v.tenant), "host": c.map(|v| &v.host), "port": c.map(|v| v.port),
             "username": c.map(|v| &v.username), "tlsMode": c.map(|v| &v.tls_mode),
             "folder": c.map(|v| &v.folder), "filter": c.map(|v| &v.filter),
@@ -250,8 +280,41 @@ impl EmailService {
         let mut config: Config = serde_json::from_value(payload.clone())
             .map_err(|_| "Invalid mailbox configuration fields")?;
         config.provider = provider;
+        if config.label.len() > 80 || config.label.contains(['\r', '\n', '\0']) {
+            return Err("Use a short account label without line breaks.".into());
+        }
         if config.folder.is_empty() {
             config.folder = inbox();
+        }
+        if !(5..=1440).contains(&config.sync_minutes) {
+            return Err("Sync interval must be between 5 and 1440 minutes.".into());
+        }
+        for list in [
+            &config.filter.domains,
+            &config.filter.excluded_senders,
+            &config.filter.subject_keywords,
+            &config.filter.reservation_keywords,
+        ] {
+            if list.len() > 20
+                || list
+                    .iter()
+                    .any(|v| v.is_empty() || v.len() > 254 || v.contains(['\r', '\n', '\0']))
+            {
+                return Err("Use up to 20 bounded filter values per category.".into());
+            }
+        }
+        if let Some(date) = &config.filter.before_date {
+            NaiveDate::parse_from_str(date, "%Y-%m-%d")
+                .map_err(|_| "beforeDate must be YYYY-MM-DD")?;
+        }
+        if config
+            .filter
+            .before_date
+            .as_ref()
+            .zip(config.filter.after_date.as_ref())
+            .is_some_and(|(end, start)| end <= start)
+        {
+            return Err("End date must follow the start date.".into());
         }
         if config.filter.senders.len() > 20
             || config
@@ -348,6 +411,9 @@ impl EmailService {
             }
         }
         let mut state = self.state()?;
+        if state.syncing {
+            return Err("Wait for the current sync before changing filters.".into());
+        }
         let changed = state
             .config
             .as_ref()
@@ -420,8 +486,8 @@ impl EmailService {
         self.status()
     }
     pub fn disconnect(&self) -> Result<Value, String> {
-        self.secrets.delete()?;
         let mut state = self.state()?;
+        self.secrets.delete()?;
         state.connected = false;
         state.authorization_pending = false;
         state.cursor = Value::Null;
@@ -432,6 +498,16 @@ impl EmailService {
         self.status()
     }
     pub fn connect(&self) -> Result<Value, String> {
+        let result = self.connect_inner();
+        if let Err(ref e) = result {
+            let mut state = self.state()?;
+            state.connected = false;
+            state.last_error = Some(e.clone());
+            self.persist(&state)?;
+        }
+        result
+    }
+    fn connect_inner(&self) -> Result<Value, String> {
         let (config, generation) = {
             let s = self.state()?;
             (
@@ -454,6 +530,9 @@ impl EmailService {
             session.examine(&config.folder)?;
             let _ = session.command("LOGOUT");
             let mut s = self.state()?;
+            if s.generation != generation {
+                return Err("Mailbox configuration changed; reconnect.".into());
+            }
             s.connected = true;
             s.last_error = None;
             self.persist(&s)?;
@@ -595,13 +674,27 @@ impl EmailService {
         if self.state()?.generation != generation {
             return Err("Mailbox authorization was cancelled.".into());
         }
-        self.secrets.save(&credentials)?;
+        // Verify mailbox access before presenting Connected. Consent alone is insufficient.
+        let token = credentials
+            .access_token
+            .as_deref()
+            .ok_or("Missing access token")?;
+        let probe = if config.provider == "gmail" {
+            "https://gmail.googleapis.com/gmail/v1/users/me/profile"
+        } else {
+            "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top=1&$select=id"
+        };
+        self.get_json(probe, token)?;
         let mut s = self.state()?;
+        if s.generation != generation {
+            return Err("Mailbox authorization was cancelled.".into());
+        }
+        self.secrets.save(&credentials)?;
         s.connected = true;
         s.last_error = None;
         self.persist(&s)
     }
-    fn access_token(&self, config: &Config) -> Result<String, String> {
+    fn access_token(&self, config: &Config, generation: u64) -> Result<String, String> {
         let mut credentials = self
             .secrets
             .load()?
@@ -633,7 +726,12 @@ impl EmailService {
             .map_err(|_| "Mailbox token refresh failed to reach the provider")?;
         let token = read_json_response(response)?;
         apply_token(&mut credentials, &token)?;
+        let state = self.state()?;
+        if state.generation != generation || !state.connected {
+            return Err("Mailbox disconnected during token refresh; reconnect to continue.".into());
+        }
         self.secrets.save(&credentials)?;
+        drop(state);
         credentials
             .access_token
             .ok_or_else(|| "The provider did not return an access token".into())
@@ -650,6 +748,8 @@ impl EmailService {
             if s.syncing {
                 return Err("A mailbox sync is already running.".into());
             }
+            s.last_attempt = Some(Utc::now().to_rfc3339());
+            self.persist(&s)?;
             s.syncing = true;
             (
                 s.config.clone().ok_or("Mailbox is not configured")?,
@@ -660,7 +760,7 @@ impl EmailService {
         let result = if config.provider == "imap" || config.provider == "proton-bridge" {
             self.sync_imap(&config, &cursor, generation)
         } else {
-            self.access_token(&config).and_then(|token| {
+            self.access_token(&config, generation).and_then(|token| {
                 if config.provider == "gmail" {
                     self.sync_gmail(&config, &token, &cursor, generation)
                 } else {
@@ -669,8 +769,8 @@ impl EmailService {
             })
         };
         let mut s = self.state()?;
-        s.syncing = false;
         if let Err(err) = &result {
+            s.syncing = false;
             s.last_error = Some(err.clone());
             self.persist(&s)?;
         }
@@ -678,6 +778,7 @@ impl EmailService {
     }
     pub fn acknowledge(&self, batch: &SyncBatch) -> Result<Value, String> {
         let mut s = self.state()?;
+        s.syncing = false;
         if s.generation != batch.generation {
             return Err(
                 "Mailbox configuration changed during import. The cursor was not advanced.".into(),
@@ -692,6 +793,38 @@ impl EmailService {
             json!({"importedMessages": batch.messages.len(), "hasMore": batch.has_more, "lastSync":Utc::now().to_rfc3339()}),
         )
     }
+    pub fn finish_statistics(
+        &self,
+        examined: usize,
+        candidates: usize,
+        drafts: usize,
+    ) -> Result<(), String> {
+        let mut s = self.state()?;
+        s.statistics = json!({"examined":examined,"candidates":candidates,"drafts":drafts});
+        self.persist(&s)
+    }
+    pub fn abort(&self) {
+        if let Ok(mut s) = self.state() {
+            s.syncing = false;
+            s.last_error =
+                Some("Import batch was not completed. Retry sync; its cursor was retained.".into());
+            let _ = self.persist(&s);
+        }
+    }
+    pub fn identity(&self) -> Result<String, String> {
+        let s = self.state()?;
+        let c = s.config.as_ref().ok_or("Configure a mailbox first")?;
+        Ok(format!(
+            "{:x}",
+            Sha256::digest(
+                format!(
+                    "{}|{}|{}|{}|{}",
+                    c.provider, c.host, c.username, c.client_id, c.tenant
+                )
+                .as_bytes()
+            )
+        ))
+    }
     /// Hosts call at most every few minutes. Failed syncs should back off; paused or
     /// disconnected accounts return false. This method never starts a thread itself.
     pub fn should_auto_sync(&self, minimum_seconds: i64) -> bool {
@@ -700,11 +833,17 @@ impl EmailService {
                 s.connected
                     && !s.paused
                     && !s.syncing
-                    && s.last_sync
+                    && s.last_attempt
                         .as_ref()
                         .and_then(|v| DateTime::parse_from_rfc3339(v).ok())
                         .is_none_or(|v| {
-                            Utc::now().timestamp() - v.timestamp() >= minimum_seconds.max(60)
+                            Utc::now().timestamp() - v.timestamp()
+                                >= minimum_seconds.max(
+                                    s.config
+                                        .as_ref()
+                                        .map(|c| c.sync_minutes * 60)
+                                        .unwrap_or(300),
+                                )
                         })
             })
             .unwrap_or(false)
@@ -759,8 +898,11 @@ impl EmailService {
         ids.truncate(BATCH);
         let mut messages = Vec::new();
         let mut next_uid = last_uid;
+        let examined = ids.len();
         for uid in ids {
-            let fetched = session.command(&format!("UID FETCH {uid} (UID BODY.PEEK[])"))?;
+            let fetched = session.command(&format!(
+                "UID FETCH {uid} (UID BODY.PEEK[HEADER.FIELDS (FROM DATE SUBJECT MESSAGE-ID)])"
+            ))?;
             let raw = fetched
                 .literals
                 .first()
@@ -772,7 +914,18 @@ impl EmailService {
                 &config.filter,
                 &parsed.headers.get_first_value("From").unwrap_or_default(),
                 &parsed.headers.get_first_value("Date").unwrap_or_default(),
+            ) && matches_subject(
+                &config.filter,
+                &parsed
+                    .headers
+                    .get_first_value("Subject")
+                    .unwrap_or_default(),
             ) {
+                let full = session.command(&format!("UID FETCH {uid} (UID BODY.PEEK[])"))?;
+                let raw = full
+                    .literals
+                    .first()
+                    .ok_or("The IMAP server did not return the requested message")?;
                 let text = String::from_utf8_lossy(raw).into_owned();
                 messages.push(EmailMessage {
                     id: format!(
@@ -795,6 +948,7 @@ impl EmailService {
         Ok(SyncBatch {
             messages,
             has_more,
+            examined,
             cursor: json!({"uidValidity":validity,"lastUid":next_uid}),
             generation,
         })
@@ -889,6 +1043,7 @@ impl EmailService {
             return Err("Gmail returned an oversized history batch; narrow the mailbox filter or reconnect for a fresh scan.".into());
         }
         let mut messages = Vec::new();
+        let examined = ids.len();
         for id in ids {
             if !id.chars().all(|c| c.is_ascii_alphanumeric()) {
                 return Err("Invalid Gmail message identity".into());
@@ -929,6 +1084,25 @@ impl EmailService {
                     continue;
                 }
             }
+            let headers = self.get_json(&format!("{base}/messages/{id}?format=metadata&metadataHeaders=From&metadataHeaders=Date&metadataHeaders=Subject"),token)?;
+            let header = |name: &str| {
+                headers["payload"]["headers"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .find(|h| {
+                        h["name"]
+                            .as_str()
+                            .is_some_and(|v| v.eq_ignore_ascii_case(name))
+                    })
+                    .and_then(|h| h["value"].as_str())
+                    .unwrap_or("")
+            };
+            if !matches_filter(&config.filter, header("From"), header("Date"))
+                || !matches_subject(&config.filter, header("Subject"))
+            {
+                continue;
+            }
             let data = self.get_json(&format!("{base}/messages/{id}?format=raw"), token)?;
             let raw = URL_SAFE_NO_PAD
                 .decode(
@@ -965,6 +1139,7 @@ impl EmailService {
         };
         Ok(SyncBatch {
             messages,
+            examined,
             has_more: next.is_some(),
             cursor: next_cursor,
             generation,
@@ -994,7 +1169,7 @@ impl EmailService {
             url.query_pairs_mut()
                 .append_pair(
                     "$select",
-                    "id,subject,body,from,receivedDateTime,webLink,internetMessageId",
+                    "id,subject,from,receivedDateTime,webLink,internetMessageId",
                 )
                 .append_pair("$top", &BATCH.to_string());
             if let Some(date) = &config.filter.after_date {
@@ -1024,22 +1199,39 @@ impl EmailService {
                 .as_str()
                 .unwrap_or("");
             let date = message["receivedDateTime"].as_str().unwrap_or("");
-            if !matches_filter(&config.filter, sender, date) {
+            if !matches_filter(&config.filter, sender, date)
+                || !matches_subject(&config.filter, message["subject"].as_str().unwrap_or(""))
+            {
                 continue;
             }
-            let body = message["body"]["content"].as_str().unwrap_or("");
-            if body.len() > MAX_MESSAGE {
+            // Fetch only selected messages, as bounded MIME (including supported attachments).
+            let mut endpoint = Url::parse("https://graph.microsoft.com/v1.0/me/messages/").unwrap();
+            endpoint
+                .path_segments_mut()
+                .map_err(|_| "Invalid message endpoint")?
+                .push(id)
+                .push("$value");
+            validate_graph_url(endpoint.as_str())?;
+            let response = http_client()?
+                .get(endpoint)
+                .bearer_auth(token)
+                .send()
+                .map_err(|_| "Could not retrieve selected Outlook message")?;
+            if !response.status().is_success() {
+                return Err(format!(
+                    "Mailbox service HTTP {}",
+                    response.status().as_u16()
+                ));
+            }
+            let mut bytes = Vec::new();
+            response
+                .take((MAX_MESSAGE + 1) as u64)
+                .read_to_end(&mut bytes)
+                .map_err(|_| "Could not read selected message")?;
+            if bytes.len() > MAX_MESSAGE {
                 return Err("A mailbox message exceeds the 12 MiB import limit.".into());
             }
-            let body = if message["body"]["contentType"]
-                .as_str()
-                .is_some_and(|v| v.eq_ignore_ascii_case("html"))
-            {
-                html_to_text(body)
-            } else {
-                body.into()
-            };
-            let text = format!("{}\n{}", message["subject"].as_str().unwrap_or(""), body);
+            let text = String::from_utf8_lossy(&bytes).into_owned();
             let link = message["webLink"]
                 .as_str()
                 .filter(|s| Url::parse(s).is_ok_and(|u| u.scheme() == "https"))
@@ -1049,7 +1241,7 @@ impl EmailService {
                 provider: "outlook".into(),
                 source_url: link,
                 text,
-                format: "text".into(),
+                format: "eml".into(),
                 received_at: Some(date.into()),
             });
         }
@@ -1060,6 +1252,7 @@ impl EmailService {
         validate_graph_url(link)?;
         Ok(SyncBatch {
             messages,
+            examined: value["value"].as_array().map(Vec::len).unwrap_or(0),
             has_more: next.is_some(),
             cursor: json!({"url":link}),
             generation,
@@ -1225,16 +1418,38 @@ fn validate_graph_url(value: &str) -> Result<(), String> {
 }
 fn gmail_query(filter: &Filter) -> String {
     let mut query = filter.query.clone().unwrap_or_else(|| DEFAULT_QUERY.into());
-    if !filter.senders.is_empty() {
+    if !filter.senders.is_empty() || !filter.domains.is_empty() {
         query = format!(
             "({query}) ({})",
             filter
                 .senders
                 .iter()
+                .chain(filter.domains.iter())
                 .map(|s| format!("from:{}", s.replace(['"', '(', ')', ' '], "")))
                 .collect::<Vec<_>>()
                 .join(" OR ")
         );
+    }
+    for (prefix, values) in [
+        ("subject", &filter.subject_keywords),
+        ("subject", &filter.reservation_keywords),
+    ] {
+        if !values.is_empty() {
+            query.push_str(&format!(
+                " ({})",
+                values
+                    .iter()
+                    .map(|v| format!("{prefix}:\"{}\"", v.replace(['"', '\\', '\r', '\n'], "")))
+                    .collect::<Vec<_>>()
+                    .join(" OR ")
+            ));
+        }
+    }
+    for sender in &filter.excluded_senders {
+        query.push_str(&format!(" -from:\"{}\"", sender.replace(['"', '\\'], "")));
+    }
+    if let Some(date) = &filter.before_date {
+        query.push_str(&format!(" before:{}", date.replace('-', "/")));
     }
     if let Some(date) = &filter.after_date {
         query.push_str(&format!(" after:{}", date.replace('-', "/")));
@@ -1248,64 +1463,69 @@ fn gmail_query(filter: &Filter) -> String {
     query
 }
 fn matches_filter(filter: &Filter, from: &str, date: &str) -> bool {
-    if !filter.senders.is_empty() {
-        let parsed = mailparse::addrparse(from).ok();
-        let addresses: Vec<String> = parsed
-            .as_ref()
-            .map(|list| {
-                list.iter()
-                    .flat_map(|a| match a {
-                        mailparse::MailAddr::Single(s) => vec![s.addr.to_lowercase()],
-                        mailparse::MailAddr::Group(g) => {
-                            g.addrs.iter().map(|a| a.addr.to_lowercase()).collect()
-                        }
-                    })
-                    .collect()
-            })
-            .unwrap_or_default();
-        if !filter
-            .senders
+    let addresses: Vec<String> = mailparse::addrparse(from)
+        .ok()
+        .map(|list| {
+            list.iter()
+                .flat_map(|a| match a {
+                    mailparse::MailAddr::Single(s) => vec![s.addr.to_lowercase()],
+                    mailparse::MailAddr::Group(g) => {
+                        g.addrs.iter().map(|s| s.addr.to_lowercase()).collect()
+                    }
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    if addresses.iter().any(|a| {
+        filter
+            .excluded_senders
             .iter()
-            .any(|s| addresses.iter().any(|a| a == &s.trim().to_lowercase()))
+            .any(|s| a.eq_ignore_ascii_case(s.trim()))
+    }) {
+        return false;
+    }
+    if !filter.senders.is_empty() || !filter.domains.is_empty() {
+        let allowed = addresses.iter().any(|a| {
+            filter
+                .senders
+                .iter()
+                .any(|s| a.eq_ignore_ascii_case(s.trim()))
+                || filter.domains.iter().any(|d| {
+                    a.rsplit_once('@').is_some_and(|(_, domain)| {
+                        domain.eq_ignore_ascii_case(d.trim().trim_start_matches('@'))
+                    })
+                })
+        });
+        if !allowed {
+            return false;
+        }
+    }
+    if filter.after_date.is_some() || filter.before_date.is_some() {
+        let Some(parsed) = DateTime::parse_from_rfc3339(date)
+            .or_else(|_| DateTime::parse_from_rfc2822(date))
+            .ok()
+        else {
+            return false;
+        };
+        let day = parsed.date_naive().to_string();
+        if filter.after_date.as_ref().is_some_and(|v| &day < v)
+            || filter.before_date.as_ref().is_some_and(|v| &day >= v)
         {
             return false;
         }
     }
-    if let Some(after) = &filter.after_date {
-        let parsed = DateTime::parse_from_rfc3339(date)
-            .or_else(|_| DateTime::parse_from_rfc2822(date))
-            .ok();
-        if let Some(parsed) = parsed {
-            if parsed.date_naive()
-                < NaiveDate::parse_from_str(after, "%Y-%m-%d").unwrap_or(NaiveDate::MIN)
-            {
-                return false;
-            }
-        }
-    }
     true
 }
-fn html_to_text(input: &str) -> String {
-    // No browser, image fetch, script execution, or HTML rendering is involved.
-    let mut result = String::new();
-    let mut inside = false;
-    for c in input.chars() {
-        match c {
-            '<' => {
-                inside = true;
-                result.push(' ');
-            }
-            '>' => inside = false,
-            _ if !inside => result.push(c),
-            _ => {}
-        }
-    }
-    result
-        .replace("&nbsp;", " ")
-        .replace("&amp;", "&")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&quot;", "\"")
+fn matches_subject(filter: &Filter, subject: &str) -> bool {
+    let subject = subject.to_lowercase();
+    [&filter.subject_keywords, &filter.reservation_keywords]
+        .iter()
+        .all(|words| {
+            words.is_empty()
+                || words
+                    .iter()
+                    .any(|word| subject.contains(&word.to_lowercase()))
+        })
 }
 fn quote_imap(value: &str) -> Result<String, String> {
     if value.contains(['\r', '\n', '\0']) || value.len() > 16384 {
@@ -1468,7 +1688,7 @@ fn read_imap_response<R: BufRead>(reader: &mut R, tag: &str) -> Result<ImapRespo
 mod tests {
     use super::*;
     #[derive(Default)]
-    struct MemorySecrets(Mutex<Option<String>>);
+    pub(super) struct MemorySecrets(Mutex<Option<String>>);
     impl SecretStore for MemorySecrets {
         fn load(&self) -> Result<Option<Credentials>, String> {
             Ok(self
@@ -1489,6 +1709,65 @@ mod tests {
     }
     fn config() -> Config {
         serde_json::from_value(json!({"provider":"gmail","clientId":"synthetic-client"})).unwrap()
+    }
+    #[test]
+    fn selective_headers_fail_closed_and_exclusions_win() {
+        let f = Filter {
+            domains: vec!["example.invalid".into()],
+            excluded_senders: vec!["ads@example.invalid".into()],
+            subject_keywords: vec!["reservation".into()],
+            after_date: Some("2028-01-01".into()),
+            before_date: Some("2029-01-01".into()),
+            ..Default::default()
+        };
+        assert!(matches_filter(
+            &f,
+            "Bookings <travel@example.invalid>",
+            "2028-04-01T12:00:00Z"
+        ));
+        assert!(!matches_filter(
+            &f,
+            "travel@example.invalid <adversary@evil.invalid>",
+            "2028-04-01T12:00:00Z"
+        ));
+        assert!(!matches_filter(
+            &f,
+            "ads@example.invalid",
+            "2028-04-01T12:00:00Z"
+        ));
+        assert!(!matches_filter(&f, "travel@example.invalid", "malformed"));
+        assert!(!matches_filter(
+            &f,
+            "travel@example.invalid",
+            "2029-01-01T00:00:00Z"
+        ));
+        assert!(matches_subject(&f, "Reservation updated"));
+        assert!(!matches_subject(&f, "Weekly newsletter"));
+        assert!(gmail_query(&f).contains("before:2029/01/01"));
+    }
+    #[test]
+    fn failed_batches_keep_cursor_and_back_off_from_attempt_time() {
+        let dir = tempfile::tempdir().unwrap();
+        let service = fixture_service(dir.path());
+        {
+            let mut s = service.state().unwrap();
+            s.connected = true;
+            s.last_attempt = Some(Utc::now().to_rfc3339());
+            s.syncing = true;
+        }
+        assert!(!service.should_auto_sync(300));
+        assert!(service.sync().is_err());
+        assert!(service.configure(&json!({"provider":"imap","host":"synthetic.invalid","username":"bookings","filter":{"senders":["one@example.invalid"]}})).is_err());
+        service.abort();
+        assert!(!service.should_auto_sync(300));
+        assert!(service.state().unwrap().cursor.is_null());
+        let batch = fixture_batch(&service, "synthetic");
+        assert!(service.state().unwrap().syncing);
+        service.acknowledge(&batch).unwrap();
+        assert!(!service.state().unwrap().syncing);
+        let reopened =
+            EmailService::with_store(dir.path(), Arc::new(MemorySecrets::default())).unwrap();
+        assert_eq!(reopened.state().unwrap().cursor["lastUid"], 1);
     }
     #[test]
     fn oauth_has_pkce_state_and_readonly_scope() {
@@ -1565,6 +1844,7 @@ mod tests {
         let batch = SyncBatch {
             messages: vec![],
             has_more: false,
+            examined: 0,
             cursor: json!({"uidValidity":3,"lastUid":10}),
             generation: 0,
         };
@@ -1782,5 +2062,32 @@ n0zCYFIFQ+tZzlYioJtRbS+R3PFXohqwgFwecuOfKrdjl2tPA29nnoguDW4FFn2M
                 .certificate_pem
                 .is_none());
         }
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn fixture_service(path: &Path) -> EmailService {
+    let service =
+        EmailService::with_store(path, Arc::new(tests::MemorySecrets::default())).unwrap();
+    service.configure(&json!({"provider":"imap","host":"synthetic.invalid","username":"bookings","password":"synthetic-only"})).unwrap();
+    service
+}
+#[cfg(test)]
+pub(crate) fn fixture_batch(service: &EmailService, text: &str) -> SyncBatch {
+    let generation = service.state().unwrap().generation;
+    service.state().unwrap().syncing = true;
+    SyncBatch {
+        messages: vec![EmailMessage {
+            id: "synthetic-message-1".into(),
+            provider: "imap".into(),
+            source_url: None,
+            text: text.into(),
+            format: "text".into(),
+            received_at: Some("2028-01-01T00:00:00Z".into()),
+        }],
+        has_more: false,
+        examined: 1,
+        cursor: json!({"lastUid":1}),
+        generation,
     }
 }

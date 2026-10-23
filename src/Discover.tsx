@@ -11,6 +11,11 @@ import {
   ArrowLeftRight,
   X,
 } from "lucide-react";
+import {
+  OfferComparison,
+  PreparedSearch,
+  WatchlistActions,
+} from "./OfferTools";
 import { AtlasRecord, Settings, money, nights, openExternal, rpc } from "./api";
 
 const PROVIDERS = [
@@ -47,6 +52,7 @@ export function Discover({
   onSelect,
   onRefresh,
   onSettings,
+  onImports,
 }: {
   records: AtlasRecord[];
   settings: Settings;
@@ -54,6 +60,7 @@ export function Discover({
   onSelect: (r: AtlasRecord) => void;
   onRefresh: () => Promise<void>;
   onSettings: () => void;
+  onImports: () => void;
 }) {
   const [section, setSection] = useState("Library");
   const [matches, setMatches] = useState<any>(null);
@@ -109,9 +116,10 @@ export function Discover({
     <div className="discover-page">
       <div className="page-intro">
         <h1>Discover</h1>
-        <p>
-          Your website library, saved places and date-specific offers.
-        </p>
+        <button className="text-button" onClick={onImports}>
+          Booking Import Center
+        </button>
+        <p>Your website library, saved places and date-specific offers.</p>
       </div>
       <div className="subnav">
         <div className="segmented">
@@ -131,6 +139,7 @@ export function Discover({
           Save an offer
         </button>
       </div>
+      {section === "Library" && <PreparedSearch settings={settings} />}
       {section === "Library" && (
         <>
           <div className="search-row">
@@ -321,6 +330,12 @@ export function Discover({
             <div className="inline-actions">
               <button
                 className="secondary"
+                onClick={() => onCreate("watchlist")}
+              >
+                Add watchlist item
+              </button>
+              <button
+                className="secondary"
                 disabled={matching || quotes.length === 0}
                 onClick={async () => {
                   setMatching(true);
@@ -429,6 +444,12 @@ export function Discover({
                 Save a place or a date-specific quote. Alternatives stay out of
                 your committed budget.
               </p>
+              <button
+                className="secondary"
+                onClick={() => onCreate("watchlist")}
+              >
+                Add watchlist item
+              </button>
               <button className="primary" onClick={() => onCreate("quote")}>
                 Save your first offer
               </button>
@@ -485,6 +506,7 @@ export function Discover({
                         </label>
                       </>
                     )}
+                    <WatchlistActions record={r} onRefresh={onRefresh} />
                   </div>
                 </article>
               ))}
@@ -493,90 +515,12 @@ export function Discover({
         </>
       )}
       {section === "Compare" && (
-        <>
-          <div className="section-heading">
-            <h2>Consider the whole stay.</h2>
-            <span className="muted">{selected.length} selected offers</span>
-          </div>
-          {selected.length < 2 ? (
-            <div className="empty">
-              <ArrowLeftRight size={30} />
-              <h3>Two possibilities, a clearer choice.</h3>
-              <p>
-                Select at least two saved offers to compare dates, totals, and
-                verified facilities.
-              </p>
-              <button
-                className="secondary"
-                onClick={() => setSection("Saved places & offers")}
-              >
-                Choose saved offers
-              </button>
-            </div>
-          ) : (
-            <div className="comparison-wrap">
-              <table className="comparison">
-                <thead>
-                  <tr>
-                    <th>What matters</th>
-                    {selected.map((r) => (
-                      <th key={r.id}>{r.name}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    [
-                      "Dates",
-                      (r: AtlasRecord) => `${r.checkIn} → ${r.checkOut}`,
-                    ],
-                    [
-                      "Full quoted total",
-                      (r: AtlasRecord) => money(r.totalMinor, r.currency),
-                    ],
-                    [
-                      "Per occupied night",
-                      (r: AtlasRecord) =>
-                        money(
-                          r.totalMinor / nights(r.checkIn, r.checkOut),
-                          r.currency,
-                        ),
-                    ],
-                    [
-                      "Mandatory fees",
-                      (r: AtlasRecord) =>
-                        r.feesComplete ? "Included" : "Missing / unknown",
-                    ],
-                    [
-                      "Refrigerator",
-                      (r: AtlasRecord) => facility(r, "refrigerator"),
-                    ],
-                    ["Workspace", (r: AtlasRecord) => facility(r, "workspace")],
-                    ["Internet", (r: AtlasRecord) => facility(r, "internet")],
-                    ["Checked", (r: AtlasRecord) => r.checkedAt || "Unknown"],
-                    [
-                      "Stretch justification",
-                      (r: AtlasRecord) => r.stretchReason || "Not provided",
-                    ],
-                  ].map(([label, value]) => (
-                    <tr key={String(label)}>
-                      <th>{String(label)}</th>
-                      {selected.map((r) => (
-                        <td key={r.id}>
-                          {(value as (r: AtlasRecord) => string)(r)}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          <p className="footnote">
-            Comparison uses saved evidence. Unknown facilities do not count as
-            verified compliance. Different currencies remain separate.
-          </p>
-        </>
+        <OfferComparison
+          ids={compare}
+          records={records}
+          settings={settings}
+          onSelect={onSelect}
+        />
       )}
     </div>
   );

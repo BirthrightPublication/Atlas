@@ -111,7 +111,10 @@ if (mode === "setup") {
           const platform =
             scenario === "wrong-platform" ? "darwin-aarch64" : "windows-x86_64";
           const manifest = {
-            version: scenario === "older" ? "0.2.0" : "0.3.1-update-test.1",
+            version:
+              scenario === "older"
+                ? "0.0.0"
+                : (await readFile(file("update-version.txt"), "utf8")).trim(),
             notes:
               "Disposable controlled update test; never a production release.",
             pub_date: "2026-10-22T00:00:00Z",

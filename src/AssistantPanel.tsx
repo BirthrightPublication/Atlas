@@ -7,6 +7,8 @@ function suggestions(module: Module, records: AtlasRecord[], context: any) {
   const hasStays = records.some((r) => r.kind === "stay");
   const byModule: Record<Module, string[]> = {
     Calendar: [
+      "Am I prepared for my next trip?",
+      "Show reservations that need my approval.",
       "Show my accommodation gaps.",
       "Find room in my schedule for groceries before work.",
       ...(hasStays

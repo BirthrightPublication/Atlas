@@ -18,6 +18,7 @@ test("booking review, calendar, payments, revisions, and restart persistence", a
   await page.goto("/");
   await expect(page.locator("[data-connection=ready]")).toBeVisible();
   await page.getByRole("button", { name: /^Import booking/ }).click();
+  await page.getByRole("button", { name: "Paste or upload a booking" }).click();
   await page
     .getByRole("button", { name: "Try a synthetic sample confirmation" })
     .click();
@@ -26,6 +27,7 @@ test("booking review, calendar, payments, revisions, and restart persistence", a
     page.getByRole("heading", { name: "Riverside apartment" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Review fields" }).click();
+  await page.getByRole("button", { name: "Edit fields", exact: true }).click();
   await expect(page.getByLabel("Full payable total")).toHaveValue("900");
   await expect(page.getByLabel("Check-out (exclusive)")).toHaveValue(
     "2027-01-11",
@@ -33,15 +35,20 @@ test("booking review, calendar, payments, revisions, and restart persistence", a
   await expect(page.getByLabel("Local timezone")).toHaveValue("Europe/Lisbon");
   await page.getByRole("button", { name: "Accept reviewed booking" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  const [stay] = await rpc(page, "records.list", { kind: "stay" });
+  await page.getByRole("button", { name: "Close imports" }).click();
+  const stay = (await rpc(page, "records.list", { kind: "stay" })).find(
+    (r: any) => r.reservationId === "SYNTHETIC-ATLAS-001",
+  );
   expect(stay.name).toBe("Riverside apartment");
   expect(stay.facilities.workspace).toBe(true);
   await expect(page.getByText("Riverside apartment").first()).toBeVisible();
   await page.getByRole("button", { name: "On Road", exact: true }).click();
   await expect(page.getByText("Riverside apartment").first()).toBeVisible();
-  expect((await rpc(page, "records.list", { kind: "stay" }))[0].context).toBe(
-    "on_foot",
-  );
+  expect(
+    (await rpc(page, "records.list", { kind: "stay" })).find(
+      (r: any) => r.id === stay.id,
+    ).context,
+  ).toBe("on_foot");
 
   await rpc(page, "records.save", {
     record: {
@@ -73,6 +80,7 @@ test("booking review, calendar, payments, revisions, and restart persistence", a
   await page.reload();
   await expect(page.getByText("Riverside apartment").first()).toBeVisible();
   await page.getByRole("button", { name: /^Import booking/ }).click();
+  await page.getByRole("button", { name: "Paste or upload a booking" }).click();
   await page
     .getByRole("button", { name: "Try a synthetic sample confirmation" })
     .click();
@@ -82,10 +90,15 @@ test("booking review, calendar, payments, revisions, and restart persistence", a
       "\nRevised confirmation",
   );
   await page.getByRole("button", { name: "Create review drafts" }).click();
+  await page.getByRole("button", { name: "Changes", exact: true }).click();
   await page.getByRole("button", { name: "Review fields" }).click();
+  await page.getByRole("button", { name: "Edit fields", exact: true }).click();
   await page.getByRole("button", { name: "Accept reviewed booking" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  const stays = await rpc(page, "records.list", { kind: "stay" });
+  await page.getByRole("button", { name: "Close imports" }).click();
+  const stays = (await rpc(page, "records.list", { kind: "stay" })).filter(
+    (r: any) => r.id === stay.id,
+  );
   expect(stays).toHaveLength(1);
   expect(stays[0].id).toBe(stay.id);
   expect(stays[0].totalMinor).toBe(93000);

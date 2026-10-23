@@ -19,6 +19,7 @@ import {
 import { Settings, isDesktop, money, openExternal, rpc } from "./api";
 import { MoneyField } from "./RecordForm";
 
+import { EmailSettings } from "./EmailSettings";
 import { APP_VERSION } from "./version";
 import { AiSettings, PhoneSettings } from "./Integrations";
 
@@ -46,6 +47,7 @@ export function SettingsPanel({
   updates,
   onNotifications,
   onBudget,
+  onImports,
   controller,
   onDirtyChange,
   onRefresh,
@@ -55,6 +57,7 @@ export function SettingsPanel({
   updates: ReactNode;
   onNotifications: () => void;
   onBudget: () => void;
+  onImports: () => void;
   controller: { current: SettingsActions | null };
   onDirtyChange: (dirty: boolean) => void;
   onRefresh: () => Promise<void>;
@@ -650,6 +653,33 @@ export function SettingsPanel({
               reminder has its own snooze, dismissal and catch-up policy. Your
               operating system controls notification banners.
             </p>
+            <h3>Booking reminder rules</h3>
+            <p className="field-help">
+              Off by default. Enabled rules create future reminders when a
+              booking is saved. Revisions update pending times; snoozed or
+              dismissed choices are retained.
+            </p>
+            {[
+              ["checkin", "Check in tomorrow"],
+              ["checkout", "Checkout approaching"],
+              ["departure", "Departure in two hours"],
+              ["cancellation", "Cancellation deadline tomorrow"],
+              ["payment", "Payment due tomorrow"],
+            ].map(([key, label]) => (
+              <label className="check-field" key={key}>
+                <input
+                  type="checkbox"
+                  checked={form.bookingReminderRules?.[key] === true}
+                  onChange={(e) =>
+                    set("bookingReminderRules", {
+                      ...form.bookingReminderRules,
+                      [key]: e.target.checked,
+                    })
+                  }
+                />
+                {label}
+              </label>
+            ))}
             <button className="secondary" onClick={onNotifications}>
               Manage reminders
             </button>
@@ -663,7 +693,7 @@ export function SettingsPanel({
           <>
             <details className="settings-disclosure" open>
               <summary>Email imports</summary>
-              <EmailSettings />
+              <EmailSettings onImports={onImports} />
             </details>
             <details className="settings-disclosure">
               <summary>Local AI</summary>
@@ -742,373 +772,6 @@ export function SettingsPanel({
         )}
       </div>
     </section>
-  );
-}
-
-function EmailSettings() {
-  const [status, setStatus] = useState<any>(null);
-  const [form, setForm] = useState<any>({
-    provider: "proton-bridge",
-    clientId: "",
-    clientSecret: "",
-    tenant: "common",
-    host: "127.0.0.1",
-    port: 1143,
-    username: "",
-    password: "",
-    tlsMode: "starttls",
-    certificatePem: "",
-    folder: "INBOX",
-    senders: "",
-    afterDate: "",
-  });
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const initialized = useRef(false);
-  const refresh = async () => {
-    try {
-      const s = await rpc("email.status");
-      setStatus(s);
-      if (s.configured && !initialized.current) {
-        initialized.current = true;
-        setForm((f: any) => ({
-          ...f,
-          ...Object.fromEntries(
-            [
-              "provider",
-              "clientId",
-              "tenant",
-              "host",
-              "port",
-              "username",
-              "tlsMode",
-              "folder",
-            ]
-              .filter((key) => s[key] != null)
-              .map((key) => [key, s[key]]),
-          ),
-          senders: (s.filter?.senders || []).join(", "),
-          afterDate: s.filter?.afterDate || "",
-        }));
-      }
-    } catch (e) {
-      setError(String(e));
-    }
-  };
-  useEffect(() => {
-    void refresh();
-    const timer = setInterval(refresh, 5000);
-    return () => clearInterval(timer);
-  }, []);
-  const set = (key: string, value: any) =>
-    setForm((f: any) => ({ ...f, [key]: value }));
-  const imap = ["proton-bridge", "imap"].includes(form.provider);
-  async function run(fn: () => Promise<any>, message: string) {
-    setBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      const result = await fn();
-      if (result?.authorizationUrl) await openExternal(result.authorizationUrl);
-      await refresh();
-      setNotice(message);
-    } catch (e) {
-      setError(String(e instanceof Error ? e.message : e));
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <>
-      <div className="email-status">
-        <span className={`status-dot ${status?.connected ? "online" : ""}`} />
-        <div>
-          <strong>
-            {status?.connected
-              ? "Mailbox connected"
-              : status?.authorizationPending
-                ? "Waiting for authorization"
-                : "No mailbox connected"}
-          </strong>
-          <small>
-            {status?.lastSync
-              ? "Last sync " + new Date(status.lastSync).toLocaleString()
-              : "Bookings will arrive as review drafts."}
-          </small>
-        </div>
-        {status?.syncing && <RefreshCw size={16} className="spin" />}
-      </div>
-      {status?.lastError && (
-        <div className="error-banner">{status.lastError}</div>
-      )}
-      {error && (
-        <div role="alert" className="error-banner">
-          {error}
-        </div>
-      )}
-      {notice && (
-        <div role="status" className="success-banner">
-          {notice}
-        </div>
-      )}
-      <label className="field">
-        <span>Booking email provider</span>
-        <select
-          value={form.provider}
-          onChange={(e) => {
-            const provider = e.target.value;
-            setForm((f: any) => ({
-              ...f,
-              provider,
-              host: provider === "proton-bridge" ? "127.0.0.1" : "",
-              port: provider === "proton-bridge" ? 1143 : 993,
-              tlsMode: provider === "proton-bridge" ? "starttls" : "tls",
-            }));
-          }}
-        >
-          <option value="proton-bridge">Proton Mail Bridge</option>
-          <option value="imap">Other provider · IMAP</option>
-          <option value="gmail">Gmail / Google Workspace</option>
-          <option value="outlook">Outlook / Microsoft 365</option>
-        </select>
-      </label>
-      {form.provider === "proton-bridge" && (
-        <div className="info-note">
-          <Shield size={18} />
-          <div>
-            Proton’s official Bridge requires a paid Proton Mail plan and a
-            running local Bridge. Free Proton accounts cannot use this automatic
-            import path. Use the Bridge-generated local credentials and export
-            its certificate.
-          </div>
-        </div>
-      )}
-      {!imap ? (
-        <>
-          <label className="field">
-            <span>Registered desktop OAuth client ID</span>
-            <input
-              value={form.clientId}
-              onChange={(e) => set("clientId", e.target.value)}
-              autoComplete="off"
-            />
-          </label>
-          {form.provider === "gmail" && (
-            <>
-              <label className="field">
-                <span>Desktop OAuth client secret</span>
-                <input
-                  type="password"
-                  value={form.clientSecret}
-                  onChange={(e) => set("clientSecret", e.target.value)}
-                  autoComplete="new-password"
-                />
-              </label>
-              <p className="field-help">
-                Google desktop OAuth uses your own registered application.
-                Restricted Gmail read-only scope requires correct consent setup.
-                External apps left in Testing may have seven-day refresh-token
-                expiry.
-              </p>
-            </>
-          )}
-          {form.provider === "outlook" && (
-            <label className="field">
-              <span>Tenant</span>
-              <input
-                value={form.tenant}
-                onChange={(e) => set("tenant", e.target.value)}
-                placeholder="common"
-              />
-            </label>
-          )}
-        </>
-      ) : (
-        <>
-          <div className="form-grid">
-            <label className="field">
-              <span>IMAP host</span>
-              <input
-                value={form.host}
-                onChange={(e) => set("host", e.target.value)}
-              />
-            </label>
-            <label className="field">
-              <span>Port</span>
-              <input
-                type="number"
-                value={form.port}
-                onChange={(e) => set("port", Number(e.target.value))}
-              />
-            </label>
-          </div>
-          <label className="field">
-            <span>Transport security</span>
-            <select
-              value={form.tlsMode}
-              onChange={(e) => set("tlsMode", e.target.value)}
-            >
-              <option value="tls">TLS</option>
-              <option value="starttls">STARTTLS (required upgrade)</option>
-            </select>
-          </label>
-          <label className="field">
-            <span>Mailbox username</span>
-            <input
-              value={form.username}
-              onChange={(e) => set("username", e.target.value)}
-              autoComplete="username"
-            />
-          </label>
-          <label className="field">
-            <span>
-              {form.provider === "proton-bridge"
-                ? "Bridge-generated password"
-                : "IMAP app password"}
-            </span>
-            <input
-              type="password"
-              value={form.password}
-              onChange={(e) => set("password", e.target.value)}
-              autoComplete="new-password"
-            />
-          </label>
-          {form.provider === "proton-bridge" && (
-            <label className="field">
-              <span>
-                Bridge certificate (PEM)
-                {status?.hasCustomTrustCertificate
-                  ? " · saved certificate retained if blank"
-                  : ""}
-              </span>
-              <textarea
-                rows={4}
-                value={form.certificatePem}
-                onChange={(e) => set("certificatePem", e.target.value)}
-                placeholder="-----BEGIN CERTIFICATE-----"
-              />
-            </label>
-          )}
-          <label className="field">
-            <span>Folder</span>
-            <input
-              value={form.folder}
-              onChange={(e) => set("folder", e.target.value)}
-            />
-          </label>
-        </>
-      )}
-      <h3 className="form-section">Retrieval filters</h3>
-      <label className="field">
-        <span>Allowed senders (comma-separated; optional)</span>
-        <input
-          value={form.senders}
-          onChange={(e) => set("senders", e.target.value)}
-          placeholder="bookings@example.com"
-        />
-      </label>
-      <label className="field">
-        <span>Retrieve after (optional)</span>
-        <input
-          type="date"
-          value={form.afterDate}
-          onChange={(e) => set("afterDate", e.target.value)}
-        />
-      </label>
-      <p className="field-help">
-        Read-only import. Filters restrict retrieval, not the OAuth grant. No
-        sending or deletion permissions are requested. Passwords and tokens are
-        stored in the OS secret store; they are never saved to the project.
-      </p>
-      <div className="inline-actions">
-        <button
-          className="secondary"
-          disabled={busy}
-          onClick={() =>
-            run(() => {
-              const payload: any = {
-                ...form,
-                filter: {
-                  senders: form.senders
-                    .split(",")
-                    .map((s: string) => s.trim())
-                    .filter(Boolean),
-                  afterDate: form.afterDate || null,
-                },
-              };
-              for (const key of ["password", "clientSecret", "certificatePem"])
-                if (!payload[key]) delete payload[key];
-              return rpc("email.configure", payload).then((result) => {
-                setForm((f: any) => ({ ...f, password: "", clientSecret: "" }));
-                return result;
-              });
-            }, "Connection settings saved securely.")
-          }
-        >
-          Save connection
-        </button>
-        <button
-          className="primary"
-          disabled={busy}
-          onClick={() =>
-            run(
-              () => rpc("email.connect"),
-              imap
-                ? "Connection checked."
-                : "Complete authorization in your browser; this panel will update.",
-            )
-          }
-        >
-          <KeyRound size={15} />
-          {busy ? "Working…" : "Connect mailbox"}
-        </button>
-      </div>
-      {status?.configured && (
-        <div className="inline-actions">
-          <button
-            className="secondary"
-            disabled={busy || status.syncing}
-            onClick={() =>
-              run(
-                () => rpc("email.sync"),
-                "Mailbox sync requested. Review imported drafts in the import inbox.",
-              )
-            }
-          >
-            <RefreshCw size={14} />
-            Sync now
-          </button>
-          <button
-            className="secondary"
-            disabled={busy}
-            onClick={() =>
-              run(
-                () => rpc("email.pause", { paused: !status.paused }),
-                status.paused ? "Import resumed." : "Import paused.",
-              )
-            }
-          >
-            <Pause size={14} />
-            {status.paused ? "Resume" : "Pause"}
-          </button>
-          <button
-            className="text-button danger"
-            disabled={busy}
-            onClick={() =>
-              run(() => rpc("email.disconnect"), "Mailbox disconnected.")
-            }
-          >
-            Disconnect
-          </button>
-        </div>
-      )}
-      <p className="field-help">
-        Automatic retrieval runs while the desktop host is running and online. A
-        live mailbox is verified only after successful authorization and
-        synchronization.
-      </p>
-    </>
   );
 }
 

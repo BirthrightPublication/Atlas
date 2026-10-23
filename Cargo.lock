@@ -233,7 +233,7 @@ dependencies = [
 
 [[package]]
 name = "atlas-core"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -258,7 +258,7 @@ dependencies = [
 
 [[package]]
 name = "atlas-desktop"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "atlas-core",
  "reqwest 0.13.5",
@@ -275,7 +275,7 @@ dependencies = [
 
 [[package]]
 name = "atlas-host"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "atlas-core",
  "axum",

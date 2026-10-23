@@ -1,10 +1,10 @@
 # Release and signed update procedure
 
-For the 0.3.0 candidate and manual upgrade evidence, see
-[v0.3 validation](VALIDATION-v0.3.md). Product identity, installation mode and the
-user-data directory remain unchanged. Windows CI verifies the pinned v0.2
+For the 0.4.0 candidate and manual upgrade evidence, see
+[v0.4 validation](VALIDATION-v0.4.md). Product identity, installation mode and the
+user-data directory remain unchanged. Windows CI verifies the pinned v0.3
 installer, populates synthetic records through its packaged service, installs
-v0.3 into the same directory and compares retained data. Expired baseline
+v0.4 into the same directory and compares retained data. Expired baseline
 artifacts can be reproduced from pinned source in a temporary directory. The
 preview does not enable an unsigned automatic update feed. Historical v0.1→v0.2
 upgrade evidence remains in [the v0.2 report](VALIDATION-v0.2.md).
@@ -101,3 +101,13 @@ installer transition. A production-key-bearing v0.3 build must be installed
 manually once before subsequent owner-signed releases can use **Update Now**.
 Complete the Signing setup above and verify the first published HTTPS manifest;
 no preview or disposable test establishes that production has been activated.
+
+
+## Version 0.4 candidate
+
+The current pipeline pins the validated v0.3 source and Windows artifact as its
+manual upgrade baseline. Ordinary v0.4 installers preserve the established app
+identity and data directory. Disposable signed tests use 0.4.0 →
+0.4.1-update-test.1, retain the TLS/signature checks and verify native restart and
+managed companion shutdown. These disposable keys do not activate production.
+See the v0.4 validation report for executed platform results and exact hashes.

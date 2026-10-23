@@ -319,7 +319,10 @@ pub fn rank(records: &[Value], settings: &Value, payload: &Value) -> Result<Valu
     let interest_prefs = words(&prefs["interests"]);
     let mut groups: BTreeMap<(String, String, String), Vec<(RankingKey, Value)>> = BTreeMap::new();
     let mut skipped = vec![];
-    for quote in records.iter().filter(|r| text(r, "kind") == "quote") {
+    for quote in records
+        .iter()
+        .filter(|r| text(r, "kind") == "quote" && text(r, "offerType") != "transport")
+    {
         if quote_ids
             .as_ref()
             .is_some_and(|ids| !ids.contains(text(quote, "id")))
@@ -607,6 +610,30 @@ pub fn preceding_location(
                 .filter(|(_, _, b)| *b <= selected)
                 .max_by_key(|(_, _, b)| *b)
         });
+    let transport = records
+        .iter()
+        .filter(|r| {
+            text(r, "kind") == "transport"
+                && text(r, "status") == "confirmed"
+                && (trip.is_empty() || text(r, "tripId") == trip)
+        })
+        .filter_map(|r| {
+            DateTime::parse_from_rfc3339(text(r, "arrival"))
+                .ok()
+                .map(|at| (r, at))
+        })
+        .filter(|(_, at)| at.date_naive() <= selected)
+        .max_by_key(|(_, at)| *at);
+    if let Some((segment, at)) = transport {
+        let after_stay = previous.is_none_or(|(_, start, end)| {
+            at.date_naive() >= *end || (*end <= selected && at.date_naive() >= *start)
+        });
+        if after_stay && !text(segment, "destination").is_empty() {
+            return Ok(
+                json!({"date":selected.to_string(),"basis":"preceding_confirmed_transport","location":{"recordId":segment["id"],"name":segment["destination"],"address":segment["destination"],"timezone":segment["arrivalTimezone"]},"planned":true,"currentLocationChanged":false,"note":"Origin follows the preceding saved arrival; intervening unrecorded travel remains unknown."}),
+            );
+        }
+    }
     if let Some((stay, _, end)) = previous {
         return Ok(
             json!({"date":selected.to_string(),"basis":"preceding_confirmed_stay","location":{

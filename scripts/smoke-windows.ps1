@@ -164,20 +164,20 @@ try {
     }
 
     if (-not [string]::IsNullOrWhiteSpace($PreviousInstallerPath)) {
-        $stage = 'Install and populate v0.2 upgrade baseline'
+        $stage = 'Install and populate v0.3 upgrade baseline'
         if ($PreviousInstallerSha256 -notmatch '^[0-9a-f]{64}$') { throw 'A verified baseline installer SHA-256 is required.' }
         $previousHash = (Get-FileHash -LiteralPath $PreviousInstallerPath -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($previousHash -cne $PreviousInstallerSha256) { throw 'Baseline installer changed after verification.' }
         $previousInstall = Start-Process -FilePath $PreviousInstallerPath -ArgumentList "/S /D=$installDirectory" -PassThru
         $ownedProcesses.Add($previousInstall)
-        if (-not $previousInstall.WaitForExit(180000) -or $previousInstall.ExitCode -ne 0) { throw 'The v0.2 baseline installer did not complete successfully.' }
-        $previousLaunch = Start-InstalledAtlas 'v0.2 baseline launch'
-        Close-InstalledAtlas $previousLaunch.Process 'v0.2 baseline launch'
+        if (-not $previousInstall.WaitForExit(180000) -or $previousInstall.ExitCode -ne 0) { throw 'The v0.3 baseline installer did not complete successfully.' }
+        $previousLaunch = Start-InstalledAtlas 'v0.3 baseline launch'
+        Close-InstalledAtlas $previousLaunch.Process 'v0.3 baseline launch'
         $previousVersion = [Diagnostics.FileVersionInfo]::GetVersionInfo($installedExecutable).ProductVersion
-        if ($previousVersion -notmatch '^0\.2\.0(?:\.|$)') { throw "The baseline executable has an unexpected version: $previousVersion" }
+        if ($previousVersion -notmatch '^0\.3\.0(?:\.|$)') { throw "The baseline executable has an unexpected version: $previousVersion" }
         $upgradeSnapshot = Join-Path $testRoot 'upgrade-before.json'
         & node (Join-Path $repository 'scripts/check-upgrade.mjs') seed (Join-Path $installDirectory 'atlas-host.exe') $databaseDirectory $upgradeSnapshot
-        if ($LASTEXITCODE -ne 0) { throw 'Populating the isolated v0.2 profile failed.' }
+        if ($LASTEXITCODE -ne 0) { throw 'Populating the isolated v0.3 profile failed.' }
         $report.upgradeFrom = $previousVersion
         $report.previousInstallerSha256 = $previousHash
     }
@@ -255,14 +255,14 @@ try {
     & node $probePath $databasePath 'verify' $runId
     if ($LASTEXITCODE -ne 0) { throw "Restart SQLite persistence validation failed (node exit $LASTEXITCODE)." }
     if (-not [string]::IsNullOrWhiteSpace($PreviousInstallerPath)) {
-        $stage = 'Verify v0.2 data after manual installer upgrade'
+        $stage = 'Verify v0.3 data after manual installer upgrade'
         # Remove only the smoke marker added after the baseline snapshot.
         & node -e "const {DatabaseSync}=require('node:sqlite');const db=new DatabaseSync(process.argv[1]);db.prepare('DELETE FROM settings WHERE key = ?').run('windows_installer_smoke');db.close();" $databasePath
         if ($LASTEXITCODE -ne 0) { throw 'Temporary restart marker cleanup failed.' }
         & node (Join-Path $repository 'scripts/check-upgrade.mjs') verify (Join-Path $installDirectory 'atlas-host.exe') $databaseDirectory $upgradeSnapshot
-        if ($LASTEXITCODE -ne 0) { throw 'The manual installer upgrade changed v0.2 data or accounting.' }
+        if ($LASTEXITCODE -ne 0) { throw 'The manual installer upgrade changed v0.3 data or accounting.' }
         $report.manualUpgrade = 'passed'
-        $report.preserved = @('records', 'stable IDs', 'versions', 'history', 'preferences', 'named presets', 'documents', 'schema', 'exact accounting')
+        $report.preserved = @('records', 'stable IDs', 'versions', 'history', 'preferences', 'named presets', 'documents', 'backed-up schema migration', 'conversations', 'notifications', 'exact accounting')
         $report.packagedServiceProbe = $true
     }
     $report.sqliteIntegrity = 'ok'

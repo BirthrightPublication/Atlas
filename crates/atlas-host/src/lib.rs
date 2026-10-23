@@ -710,6 +710,12 @@ async fn rpc(
     let receipt_id = request.request_id.clone();
     let method = request.method.clone();
     let result = tokio::task::spawn_blocking(move || {
+        if dev && ["imports.parse", "imports.ai"].contains(&request.method.as_str()) {
+            return atlas_core::imports::query(&core, &request.method, &request.payload);
+        }
+        if dev && request.method.starts_with("email.") {
+            return atlas_core::mailbox::query(&core, &request.method, &request.payload);
+        }
         if dev && request.method == "releases.history" {
             return atlas_core::releases::query(&core, &request.payload);
         }

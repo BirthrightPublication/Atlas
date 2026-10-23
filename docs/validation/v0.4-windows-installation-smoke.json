@@ -1,0 +1,47 @@
+{
+  "status": "passed",
+  "version": "0.4.0",
+  "platform": "windows-x86_64",
+  "installer": "Birthright-Atlas_0.4.0_windows_x86_64-setup.exe",
+  "installerSha256": "aa4961bbf9ffc1d9171ea52a47bf39a83bcc241ae52e14ddd04f7d8412398adb",
+  "installedBinary": "atlas.exe",
+  "isolatedTemporaryProfile": true,
+  "developerServerUsed": false,
+  "userInteractive": true,
+  "upgradeFrom": "0.3.0",
+  "previousInstallerSha256": "8242b2bc5f00e4c5db165fe8c4dbcb18d4147ce1a1b26cc86a909ae873fe3acd",
+  "installedVersion": "0.4.0",
+  "packagedResources": [
+    "atlas-host.exe",
+    "companion-ui/index.html",
+    "THIRD_PARTY_NOTICES.txt"
+  ],
+  "installerExitCode": 0,
+  "startMenuShortcut": "Birthright Atlas.lnk",
+  "firstLaunch": {
+    "nativeWindowTitle": "Birthright: Atlas",
+    "readyMilliseconds": 269
+  },
+  "secondLaunch": {
+    "nativeWindowTitle": "Birthright: Atlas",
+    "readyMilliseconds": 264
+  },
+  "manualUpgrade": "passed",
+  "preserved": [
+    "records",
+    "stable IDs",
+    "versions",
+    "history",
+    "preferences",
+    "named presets",
+    "documents",
+    "backed-up schema migration",
+    "conversations",
+    "notifications",
+    "exact accounting"
+  ],
+  "packagedServiceProbe": true,
+  "sqliteIntegrity": "ok",
+  "persistenceMarkerRetained": true,
+  "controlledSignedUpdate": "passed"
+}
