@@ -5,11 +5,14 @@ export function EmailSettings({ onImports }: { onImports: () => void }) {
   const [accounts, setAccounts] = useState<any[]>([]);
   const [accountId, setAccountId] = useState("default");
   const [step, setStep] = useState(0);
+  const currentAccount = useRef(accountId);
+  currentAccount.current = accountId;
   const accountRpc = (method: string, payload: any = {}) =>
     rpc(method, { ...payload, accountId });
   const [status, setStatus] = useState<any>(null);
   const [form, setForm] = useState<any>({
     provider: "proton-bridge",
+    label: "",
     clientId: "",
     clientSecret: "",
     tenant: "common",
@@ -38,8 +41,10 @@ export function EmailSettings({ onImports }: { onImports: () => void }) {
   const refresh = async () => {
     try {
       const s = await accountRpc("email.status");
+      const list = await rpc("email.accounts");
+      if (currentAccount.current !== accountId) return;
       setStatus(s);
-      setAccounts(await rpc("email.accounts"));
+      setAccounts(list);
       if (s.configured && !initialized.current) {
         initialized.current = true;
         setForm((f: any) => ({
@@ -47,6 +52,7 @@ export function EmailSettings({ onImports }: { onImports: () => void }) {
           ...Object.fromEntries(
             [
               "provider",
+              "label",
               "clientId",
               "tenant",
               "host",
@@ -125,8 +131,10 @@ export function EmailSettings({ onImports }: { onImports: () => void }) {
           >
             {accounts.map((a) => (
               <option key={a.accountId} value={a.accountId}>
-                {a.username || a.provider || "New connection"} ·{" "}
-                {a.connectionState}
+                {a.label ||
+                  a.username ||
+                  `${a.provider || "New connection"} · ${a.accountId.slice(0, 6)}`}{" "}
+                · {a.connectionState}
               </option>
             ))}
           </select>
@@ -142,6 +150,7 @@ export function EmailSettings({ onImports }: { onImports: () => void }) {
               setStep(0);
               setForm((f: any) => ({
                 ...f,
+                label: "",
                 username: "",
                 password: "",
                 clientSecret: "",
@@ -197,6 +206,15 @@ export function EmailSettings({ onImports }: { onImports: () => void }) {
       )}
       {step === 0 && (
         <>
+          <label className="field">
+            <span>Account label</span>
+            <input
+              value={form.label}
+              maxLength={80}
+              onChange={(e) => set("label", e.target.value)}
+              placeholder="Travel bookings"
+            />
+          </label>
           <label className="field">
             <span>Booking email provider</span>
             <select

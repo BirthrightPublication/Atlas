@@ -29,6 +29,8 @@ const DEFAULT_QUERY: &str =
 #[serde(rename_all = "camelCase")]
 struct Config {
     provider: String,
+    #[serde(default)]
+    label: String,
     #[serde(default = "default_interval")]
     sync_minutes: i64,
     #[serde(default)]
@@ -259,7 +261,7 @@ impl EmailService {
             "statistics": state.statistics, "syncMinutes": c.map(|v| v.sync_minutes).unwrap_or(5),
             "connectionState": if state.authorization_pending { "connecting" } else if state.syncing { "synchronizing" } else if state.last_error.as_ref().is_some_and(|e| e.contains("401") || e.to_lowercase().contains("reconnect")) { "reauthorization required" } else if state.last_error.is_some() { "connection error" } else if !state.connected || !present { "not connected" } else if state.paused { "paused" } else { "connected" },
             "secureStorageAvailable": secure.is_ok(),
-            "provider": c.map(|v| &v.provider), "clientId": c.map(|v| &v.client_id),
+            "label": c.map(|v| &v.label), "provider": c.map(|v| &v.provider), "clientId": c.map(|v| &v.client_id),
             "tenant": c.map(|v| &v.tenant), "host": c.map(|v| &v.host), "port": c.map(|v| v.port),
             "username": c.map(|v| &v.username), "tlsMode": c.map(|v| &v.tls_mode),
             "folder": c.map(|v| &v.folder), "filter": c.map(|v| &v.filter),
@@ -278,6 +280,9 @@ impl EmailService {
         let mut config: Config = serde_json::from_value(payload.clone())
             .map_err(|_| "Invalid mailbox configuration fields")?;
         config.provider = provider;
+        if config.label.len() > 80 || config.label.contains(['\r', '\n', '\0']) {
+            return Err("Use a short account label without line breaks.".into());
+        }
         if config.folder.is_empty() {
             config.folder = inbox();
         }
