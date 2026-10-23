@@ -201,6 +201,15 @@ fn offer_comparison_scenario_and_watchlist_are_exact_and_noncommitting() {
         &mut a,
         json!({"kind":"quote","name":"Unknown apartment","checkIn":"2028-12-12","checkOut":"2029-01-11","totalMinor":80000,"currency":"USD","feesComplete":false,"facilities":{}}),
     );
+    for (field, value) in [
+        ("baggageMinor", json!(1.25)),
+        ("transferMinor", json!(-1)),
+        ("targetBudgetMinor", json!(1_000_000_000_001i64)),
+    ] {
+        let mut bad = one.clone();
+        bad[field] = value;
+        assert!(a.call("records.save", json!({"record":bad})).is_err());
+    }
     let before = call(&mut a, "snapshot", json!({}));
     let ranking = call(
         &mut a,

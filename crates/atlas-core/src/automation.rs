@@ -60,6 +60,9 @@ impl Atlas {
                     return Err("Price must use nonnegative integer minor units.".into());
                 }
                 if let Some(amount) = snapshot["priceMinor"].as_i64() {
+                    if amount > 1_000_000_000_000 {
+                        return Err("Snapshot price exceeds supported range.".into());
+                    }
                     crate::require_currency_amount(
                         &json!({"currency":snapshot["currency"],"amountMinor":amount}),
                         "amountMinor",

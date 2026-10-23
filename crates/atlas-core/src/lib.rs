@@ -384,6 +384,13 @@ impl Atlas {
             "reserveMinor",
             "allowanceMinor",
             "openingBalanceMinor",
+            "taxesMinor",
+            "feesMinor",
+            "depositMinor",
+            "baggageMinor",
+            "transferMinor",
+            "overnightMinor",
+            "targetBudgetMinor",
         ] {
             if let Some(v) = r.get(key) {
                 let n = v
