@@ -28,9 +28,21 @@ const supported = {
   "x86_64-apple-darwin": "dmg",
 };
 if (!supported[target]) throw new Error("Unsupported desktop target");
-const bundles = option("--bundles") || supported[target];
-if (!/^(nsis|dmg|appimage|deb)(,(nsis|dmg|appimage|deb))*$/.test(bundles))
+let bundles = option("--bundles") || supported[target];
+// A DMG-only request does not select the app updater archive. Signed macOS
+// releases need the app bundle as an explicit target as well as the DMG.
+if (
+  args.includes("--signed") &&
+  target.endsWith("-apple-darwin") &&
+  !bundles.split(",").includes("app")
+)
+  bundles = `app,${bundles}`;
+if (
+  !/^(app|nsis|dmg|appimage|deb)(,(app|nsis|dmg|appimage|deb))*$/.test(bundles)
+)
   throw new Error("Unsupported bundle selection");
+if (bundles.split(",").includes("app") && !target.endsWith("-apple-darwin"))
+  throw new Error("The app bundle target is macOS-only");
 function run(binary, arguments_) {
   const result = spawnSync(binary, arguments_, {
     stdio: "inherit",

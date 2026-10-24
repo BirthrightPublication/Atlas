@@ -1,0 +1,59 @@
+name: Verify unsigned preview to trusted bootstrap
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/bootstrap-transition.yml"
+      - "scripts/verify-bootstrap-transition.mjs"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  same-version-windows:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24.19.0"
+      - run: npm ci
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          github-token: ${{ github.token }}
+          run-id: 40061296428
+          name: atlas-x86_64-pc-windows-msvc
+          path: previous
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          github-token: ${{ github.token }}
+          run-id: 40074289786
+          name: signed-x86_64-pc-windows-msvc
+          path: release
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          github-token: ${{ github.token }}
+          run-id: 40074289786
+          name: signed-identity
+          path: release
+      - name: Verify delivered baseline hash and bootstrap permanent signature
+        run: node scripts/verify-bootstrap-transition.mjs
+      - name: Install signed bootstrap over populated unsigned 0.5.0
+        shell: pwsh
+        run: |
+          $filename = 'Birthright-Atlas_0.5.0_windows_x86_64-setup.exe'
+          $installer = Join-Path $PWD "release/windows-x86_64/$filename"
+          $previous = Join-Path $PWD "previous/windows-x86_64/$filename"
+          ./scripts/smoke-windows.ps1 -InstallerPath $installer -InstallerVersion 0.5.0 -PreviousInstallerPath $previous -PreviousInstallerVersion 0.5.0 -PreviousInstallerSha256 '7d94963d1223cc16fc6759aaa126420b795db073c088bc6f57a6c6296dcf9614'
+      - name: Record synthetic transition evidence
+        if: always()
+        run: node scripts/report-validation.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: unsigned-0.5-to-trusted-0.5-transition
+          path: release/windows-x86_64/windows-installation-smoke.json
+          if-no-files-found: warn

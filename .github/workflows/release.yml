@@ -7,6 +7,11 @@ on:
         description: Release notes for the draft (review before publishing)
         required: true
         type: string
+      reuse_run:
+        description: Optional prior signed-build run to assemble without rebuilding identical application source
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -20,15 +25,26 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
-          node-version: '24.19.0'
+          node-version: "24.19.0"
+      - name: Install pinned signing CLI
+        run: npm ci
       - name: Check owner signing configuration before native builds
         run: node scripts/release-preflight.mjs
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           ATLAS_UPDATE_PUBLIC_KEY: ${{ vars.ATLAS_UPDATE_PUBLIC_KEY }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: signed-identity
+          path: |
+            release/updater-public-key.txt
+            release/signing-identity.json
+          if-no-files-found: error
+          retention-days: 14
   signed-build:
     needs: preflight
+    if: inputs.reuse_run == ''
     environment: release-signing
     strategy:
       fail-fast: false
@@ -42,10 +58,10 @@ jobs:
             bundles: appimage,deb
           - runner: macos-14
             target: aarch64-apple-darwin
-            bundles: dmg
+            bundles: app,dmg
           - runner: macos-15-intel
             target: x86_64-apple-darwin
-            bundles: dmg
+            bundles: app,dmg
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -53,7 +69,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: '24.19.0'
+          node-version: "24.19.0"
           cache: npm
       - name: Install Linux system prerequisites
         if: runner.os == 'Linux'
@@ -64,6 +80,16 @@ jobs:
         shell: bash
         run: rustup toolchain install 1.90.0 --profile minimal --component rustfmt --component clippy --target '${{ matrix.target }}'
       - run: npm ci
+      - name: Validate Windows release script syntax
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          foreach ($script in Get-ChildItem scripts -Filter '*.ps1') {
+            $null = [System.Management.Automation.Language.Parser]::ParseFile($script.FullName, [ref]$tokens, [ref]$errors)
+            if ($errors.Count -ne 0) { throw ($errors | Out-String) }
+          }
       - run: npm run build
       - run: cargo test --workspace --locked
       - run: node --test scripts/release.test.mjs tests/money-input.test.mjs
@@ -93,6 +119,9 @@ jobs:
           $config = Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
           $installer = Join-Path $PWD "release/windows-x86_64/Birthright-Atlas_$($config.version)_windows_x86_64-setup.exe"
           ./scripts/smoke-windows.ps1 -InstallerPath $installer -PreviousInstallerPath '${{ steps.previous.outputs.installer }}' -PreviousInstallerSha256 '${{ steps.previous.outputs.sha256 }}'
+      - name: Record public artifacts and synthetic native installation evidence
+        if: ${{ always() }}
+        run: node scripts/report-validation.mjs
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: signed-${{ matrix.target }}
@@ -100,20 +129,30 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   draft:
-    needs: signed-build
+    needs: [preflight, signed-build]
+    if: ${{ always() && needs.preflight.result == 'success' && (needs.signed-build.result == 'success' || inputs.reuse_run != '') }}
     runs-on: ubuntu-22.04
     environment: release-signing
     permissions:
       contents: write
+      actions: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           fetch-depth: 0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: '24.19.0'
+          node-version: "24.19.0"
+      - name: Verify reused signed run and identical application source
+        if: inputs.reuse_run != ''
+        run: node scripts/verify-release-reuse.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ATLAS_REUSE_RUN: ${{ inputs.reuse_run }}
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.reuse_run || github.run_id }}
           pattern: signed-*
           path: release
           merge-multiple: true
@@ -122,7 +161,15 @@ jobs:
         env:
           ATLAS_UPDATE_PUBLIC_KEY: ${{ vars.ATLAS_UPDATE_PUBLIC_KEY }}
           ATLAS_RELEASE_NOTES: ${{ inputs.notes }}
+      - name: Retain the complete verified signed payload for owner review
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: verified-signed-release
+          path: release/
+          if-no-files-found: error
+          retention-days: 14
       - name: Create draft only after every artifact passed
+        id: create_draft
         run: node scripts/create-draft-release.mjs
         env:
           GH_TOKEN: ${{ github.token }}
