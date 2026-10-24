@@ -1,11 +1,11 @@
 # Activate Atlas updates once
 
 The owner has merged PR #5 into `main` and created `release-signing`. The signed
-workflow is available in Actions. The public-key format has been corrected.
-The latest signing preflight reports that `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
-does not unlock the stored private key. The key pair remains unverified until
-the existing key's original password is configured correctly.
-No production installer or release has been created. See
+workflow is available in Actions. The owner corrected the public-key format and
+password. The existing permanent key/password pair has signed a version-bound
+proof which the public key verified. Signed release builds are now running;
+publication and real in-app update acceptance remain separate approval/test
+steps. See
 [v0.6 activation evidence](VALIDATION-v0.6.md).
 
 The installed unsigned v0.5 preview cannot learn a new verification key through
@@ -14,7 +14,8 @@ later releases must use the same signing identity. Preserve the data directory;
 do not uninstall or delete it.
 
 **If you already generated the permanent key, skip step 1.** Keep that key and
-its password. Correct the password secret in step 2 or use the helper below.
+its password. Reuse the configured identity; step 2 includes recovery guidance
+if a future configuration check fails.
 
 ## 1. Generate and retain the identity on your Windows computer
 

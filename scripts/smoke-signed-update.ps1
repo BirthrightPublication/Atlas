@@ -14,6 +14,9 @@ foreach ($p in @($TestRoot,$InstallDirectory,$DataDirectory)) {
     if (-not [IO.Path]::GetFullPath($p).StartsWith($temporary,[StringComparison]::OrdinalIgnoreCase)) { throw 'Controlled updates require owned runner-temporary paths.' }
 }
 $repository=Split-Path -Parent $PSScriptRoot
+$baseVersion = [string](Get-Content (Join-Path $repository 'src-tauri/tauri.conf.json') -Raw | ConvertFrom-Json).version
+$parsedVersion = [version]$baseVersion
+$targetVersion = '{0}.{1}.{2}-update-test.1' -f $parsedVersion.Major, $parsedVersion.Minor, ($parsedVersion.Build + 1)
 $fixture=Join-Path $TestRoot 'signed-update-fixture'
 if(Test-Path $fixture){throw 'Controlled fixture directory already exists.'}
 $originals=@{}
@@ -45,20 +48,20 @@ try {
     $report.stage='Build disposable signed installer'
     Run-Checked 'node' @('scripts/build-desktop.mjs','--target','x86_64-pc-windows-msvc','--bundles','nsis','--signed','--update-smoke')
     $baseline=Join-Path $fixture 'baseline.exe'
-    Copy-Item -LiteralPath 'target/x86_64-pc-windows-msvc/release/bundle/nsis/Birthright Atlas_0.5.0_x64-setup.exe' -Destination $baseline
+    Copy-Item -LiteralPath "target/x86_64-pc-windows-msvc/release/bundle/nsis/Birthright Atlas_${baseVersion}_x64-setup.exe" -Destination $baseline
     # Change only local test-build version metadata, restoring every byte below.
     foreach($file in @('package.json','package-lock.json','src-tauri/tauri.conf.json')) {
-        $p=Join-Path $repository $file;$value=Get-Content $p -Raw|ConvertFrom-Json -AsHashtable;$value.version='0.5.1-update-test.1'
-        if($file -eq 'package-lock.json'){$value.packages[''].version='0.5.1-update-test.1'}
+        $p=Join-Path $repository $file;$value=Get-Content $p -Raw|ConvertFrom-Json -AsHashtable;$value.version=$targetVersion
+        if($file -eq 'package-lock.json'){$value.packages[''].version=$targetVersion}
         [IO.File]::WriteAllText($p,($value|ConvertTo-Json -Depth 100))
     }
-    $cargo=Join-Path $repository 'Cargo.toml';[IO.File]::WriteAllText($cargo,([IO.File]::ReadAllText($cargo).Replace('version = "0.5.0"','version = "0.5.1-update-test.1"')))
+    $cargo=Join-Path $repository 'Cargo.toml';[IO.File]::WriteAllText($cargo,([IO.File]::ReadAllText($cargo).Replace("version = `"$baseVersion`"", "version = `"$targetVersion`"")))
     $lock=Join-Path $repository 'Cargo.lock';$content=[IO.File]::ReadAllText($lock).Replace("`r`n","`n")
-    foreach($name in @('atlas-core','atlas-host','atlas-desktop')){$content=$content.Replace("name = `"$name`"`nversion = `"0.5.0`"","name = `"$name`"`nversion = `"0.5.1-update-test.1`"")}
+    foreach($name in @('atlas-core','atlas-host','atlas-desktop')){$content=$content.Replace("name = `"$name`"`nversion = `"$baseVersion`"","name = `"$name`"`nversion = `"$targetVersion`"")}
     [IO.File]::WriteAllText($lock,$content)
-    $report.stage='Build signed target 0.5.1-update-test.1'
+    $report.stage="Build signed target $targetVersion"
     Run-Checked 'node' @('scripts/build-desktop.mjs','--target','x86_64-pc-windows-msvc','--bundles','nsis','--signed','--update-smoke')
-    $target='target/x86_64-pc-windows-msvc/release/bundle/nsis/Birthright Atlas_0.5.1-update-test.1_x64-setup.exe'
+    $target="target/x86_64-pc-windows-msvc/release/bundle/nsis/Birthright Atlas_${targetVersion}_x64-setup.exe"
     Copy-Item -LiteralPath $target -Destination (Join-Path $fixture 'update.exe')
     Copy-Item -LiteralPath "$target.sig" -Destination (Join-Path $fixture 'update.exe.sig')
     # Serve the exact version that produced the signed artifact, never a stale fixture constant.
@@ -92,7 +95,7 @@ try {
                 throw "The installed signed update did not confirm restart. Installed version: $installedVersion. $detail"
             }
             $restarted=Get-Content $marker -Raw|ConvertFrom-Json
-            if($restarted.version -ne '0.5.1-update-test.1' -or -not $restarted.nativeRestart){throw 'Signed update restarted the wrong version.'}
+            if($restarted.version -ne $targetVersion -or -not $restarted.nativeRestart){throw 'Signed update restarted the wrong version.'}
             $report.nativeRestart=$true
         }
         $result=Get-Content $resultPath -Raw|ConvertFrom-Json

@@ -33,6 +33,14 @@ the stored password for that private key. Only a constant, redacted category
 was exposed; raw signing output and credentials were withheld. No installer or
 draft was created. See [the password correction](OWNER-UPDATE-SETUP.md#correct-the-signing-key-password).
 
+After the owner corrected the password, [attempt 2 of the diagnostic run](https://github.com/BirthrightPublication/Atlas/actions/runs/40072999050/attempts/2)
+passed preflight using the existing permanent identity. A real version-bound
+signature verified successfully. The public-key packet SHA-256 is
+`667267e572c171192ff432236e4db84f70e60d5348f8dbe81de8a9ec875c43ea`.
+The production-configured 0.5.0 bootstrap is building from
+`50f792ba1225070fbf00b06f17e7f0d39900d014`. Private contents remain in protected
+GitHub Actions; no permanent key was generated or changed in this workspace.
+
 No stable or draft GitHub release exists. Consequently the public
 `https://github.com/BirthrightPublication/Atlas/releases/latest/download/latest.json`
 endpoint cannot provide a production update yet. No preview artifact is
@@ -55,7 +63,7 @@ test passes these cases and checks that paths, private contents and passwords
 never enter diagnostic output. CLI messages are matched internally and are
 never forwarded to logs. The actual protected run established the current
 password failure; the correct secret value requires the owner's original
-password and cannot be repaired from this workspace.
+password and was corrected by the owner in GitHub.
 
 The new Windows helper reuses the owner's existing key, verifies the local
 pair, and optionally uploads secrets by standard input and the public variable
@@ -78,14 +86,16 @@ and native validation remains in [the v0.5 report](VALIDATION-v0.5.md).
 
 ## Remaining dependencies and acceptance
 
-Application metadata intentionally remains 0.5.0 for the trusted bootstrap.
-No 0.6.0 installer has been built or published while signing is blocked. The
-application source is unchanged from the validated v0.5 candidate.
+The pinned bootstrap source remains 0.5.0. The current target metadata is 0.6.0
+across npm, Cargo and Tauri. The target adds separate missing-manifest,
+incompatible-platform, transfer, signature and installation diagnostics. Two
+native updater tests, all 146 workspace tests, the retained test-feature compile
+and the production frontend build passed locally. The
+ordinary planning/data services and schema remain unchanged.
 
-1. Owner corrects `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` in `release-signing` using
-   the original password for the retained private key. The public-key format is
-   corrected; the key pair's match still needs a successful signing proof.
-2. Rerun signing preflight and build the actual production-configured 0.5.0
+1. Signing configuration is verified; reuse this exact permanent identity for
+   both versions and all subsequent releases.
+2. Finish the actual production-configured 0.5.0
    bootstrap. Verify signatures, checksums and its populated Windows upgrade.
 3. Build the newer 0.6.0 release with the same verified permanent identity and
    review the complete drafts. Stable publication needs owner approval.
@@ -98,6 +108,7 @@ application source is unchanged from the validated v0.5 candidate.
    platform, installation-failure, concurrent-update and backup-recovery results
    separately. Previous controlled checks do not establish published acceptance.
 
-**Production updater status: blocked on the signing-key password and later
-owner publication approval. Real in-app published-update acceptance is pending.**
+**Production updater status: signing verified and production builds running;
+owner publication approval and real in-app published-update acceptance remain
+pending.**
 No new unsigned candidate is delivered as a solution to this blocker.

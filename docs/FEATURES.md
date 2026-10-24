@@ -3,15 +3,16 @@
 This document distinguishes source implementation from runtime and release
 validation. Checks used the Linux cloud workspace and native CI runners.
 
-Version 0.5.0 preserves the approved neutral theme, bottom dock, full-page
+Version 0.6.0 preserves the approved neutral theme, bottom dock, full-page
 Settings and shared nonmodal utility panel. Assistant chats and actionable
 notification state persist in schema 5. Numbers use local Times
 New Roman, falling back to Liberation Serif/Times when it is unavailable.
 See [v0.5 validation](VALIDATION-v0.5.md) for current evidence; the
 [v0.2](VALIDATION-v0.2.md) and [v0.1](VALIDATION.md) reports remain historical.
 The [v0.6 activation report](VALIDATION-v0.6.md) tracks the merged default-branch
-workflow and the remaining signing-key password failure separately. The owner
-has corrected the public-key format; production signing is still blocked.
+workflow, verified permanent signing identity and production build results
+separately. The owner's key/password pair passed a real signing proof; signed
+bootstrap/target builds and published in-app acceptance are tracked there.
 
 | Area                        | Implemented behavior                                                                                                                       | Validation / limitation                                                                                                                |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |

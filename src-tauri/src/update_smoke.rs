@@ -89,7 +89,7 @@ pub fn start(app: tauri::AppHandle) {
 async fn run(app: &tauri::AppHandle, case: &str) -> Result<(), String> {
     let root = root(app)?;
     // The actual newly installed executable writes this marker after its restart.
-    if app.package_info().version.to_string() == "0.5.1-update-test.1" {
+    if app.package_info().version.pre.as_str() == "update-test.1" {
         if case != "valid" {
             return Err("Unexpected restart into target test version".into());
         }
@@ -105,7 +105,8 @@ async fn run(app: &tauri::AppHandle, case: &str) -> Result<(), String> {
         }
         std::fs::write(
             root.join("controlled-update-restarted.json"),
-            json!({"version":"0.5.1-update-test.1","nativeRestart":true}).to_string(),
+            json!({"version":app.package_info().version.to_string(),"nativeRestart":true})
+                .to_string(),
         )
         .map_err(|_| "Could not record native restart")?;
         return Ok(());

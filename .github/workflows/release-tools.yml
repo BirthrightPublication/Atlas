@@ -28,8 +28,10 @@ jobs:
         run: |
           $tokens = $null
           $errors = $null
-          $null = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD 'scripts/setup-release-signing.ps1'), [ref]$tokens, [ref]$errors)
-          if ($errors.Count -ne 0) { throw ($errors | Out-String) }
+          foreach ($script in Get-ChildItem scripts -Filter '*.ps1') {
+            $null = [System.Management.Automation.Language.Parser]::ParseFile($script.FullName, [ref]$tokens, [ref]$errors)
+            if ($errors.Count -ne 0) { throw ($errors | Out-String) }
+          }
           $refused = $false
           try { ./scripts/setup-release-signing.ps1 } catch {
             if ($_.Exception.Message -notlike 'Use your trusted Windows computer*') { throw }

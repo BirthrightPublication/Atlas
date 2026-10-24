@@ -74,6 +74,16 @@ jobs:
         shell: bash
         run: rustup toolchain install 1.90.0 --profile minimal --component rustfmt --component clippy --target '${{ matrix.target }}'
       - run: npm ci
+      - name: Validate Windows release script syntax
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          foreach ($script in Get-ChildItem scripts -Filter '*.ps1') {
+            $null = [System.Management.Automation.Language.Parser]::ParseFile($script.FullName, [ref]$tokens, [ref]$errors)
+            if ($errors.Count -ne 0) { throw ($errors | Out-String) }
+          }
       - run: npm run build
       - run: cargo test --workspace --locked
       - run: node --test scripts/release.test.mjs tests/money-input.test.mjs
@@ -103,6 +113,9 @@ jobs:
           $config = Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
           $installer = Join-Path $PWD "release/windows-x86_64/Birthright-Atlas_$($config.version)_windows_x86_64-setup.exe"
           ./scripts/smoke-windows.ps1 -InstallerPath $installer -PreviousInstallerPath '${{ steps.previous.outputs.installer }}' -PreviousInstallerSha256 '${{ steps.previous.outputs.sha256 }}'
+      - name: Record public artifacts and synthetic native installation evidence
+        if: ${{ always() }}
+        run: node scripts/report-validation.mjs
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: signed-${{ matrix.target }}
