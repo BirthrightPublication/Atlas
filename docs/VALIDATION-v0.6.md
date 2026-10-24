@@ -20,6 +20,10 @@ at `e95c6638ae0b6e8eac7a3b9f5ab1dca22def27cb` identified the precise blocker:
 `ATLAS_UPDATE_PUBLIC_KEY` is present but is not a valid Tauri public-key
 envelope. Both required secret values are present; their correctness/match has
 not been established. Their contents were never read through this workspace.
+The [later signing check](https://github.com/BirthrightPublication/Atlas/actions/runs/40072472572)
+at `c386f296a4d4c99e01032687b3d5cf22eb252664` reported the same malformed public
+setting and stopped before native builds. This is the last executed signing
+check; the owner is correcting the existing public variable.
 See [the exact owner correction](OWNER-UPDATE-SETUP.md#correct-the-current-public-key-setting).
 
 No stable or draft GitHub release exists. Consequently the public
@@ -45,6 +49,11 @@ Its [Windows tooling check](https://github.com/BirthrightPublication/Atlas/actio
 passed at `b805bf5f922e2fa362a3a597d23af6de2bc7d1c3`: the actual Windows runner
 passed the signing-preflight security test, parsed the PowerShell helper and
 proved it refuses CI execution. Real owner upload is a separate operation.
+The [final Windows tooling check](https://github.com/BirthrightPublication/Atlas/actions/runs/40072457720)
+also passed at `c386f296a4d4c99e01032687b3d5cf22eb252664`, including the added
+public-key whitespace normalization/configuration test. The release wrapper
+now gives the generated Tauri configuration and compiler child process the same
+trimmed public key; copied trailing newlines cannot create inconsistent trust.
 
 The new preflight security test passed locally: missing values, malformed
 public key, wrong password, mismatched pair, a valid version-bound proof, public
@@ -53,6 +62,10 @@ not another disposable update-installation acceptance claim. Prior application
 and native validation remains in [the v0.5 report](VALIDATION-v0.5.md).
 
 ## Remaining dependencies and acceptance
+
+Application metadata intentionally remains 0.5.0 for the trusted bootstrap.
+No 0.6.0 installer has been built or published while signing is blocked. The
+application source is unchanged from the validated v0.5 candidate.
 
 1. Owner corrects the public environment variable using the existing `.pub`
    file. No key rotation or private material in chat is needed.
