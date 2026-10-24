@@ -10,9 +10,10 @@ New Roman, falling back to Liberation Serif/Times when it is unavailable.
 See [v0.5 validation](VALIDATION-v0.5.md) for current evidence; the
 [v0.2](VALIDATION-v0.2.md) and [v0.1](VALIDATION.md) reports remain historical.
 The [v0.6 activation report](VALIDATION-v0.6.md) tracks the merged default-branch
-workflow, verified permanent signing identity and production build results
-separately. The owner's key/password pair passed a real signing proof; signed
-bootstrap/target builds and published in-app acceptance are tracked there.
+workflow, verified permanent signing identity and successful signed platform
+builds separately. The exact unsigned-to-trusted bootstrap transition passed;
+0.6 draft attachment is blocked by a GitHub Actions HTTP 403 and real published
+in-app acceptance remains pending.
 
 | Area                        | Implemented behavior                                                                                                                       | Validation / limitation                                                                                                                |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |

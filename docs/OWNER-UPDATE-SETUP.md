@@ -1,11 +1,13 @@
 # Activate Atlas updates once
 
 The owner has merged PR #5 into `main` and created `release-signing`. The signed
-workflow is available in Actions. The owner corrected the public-key format and
-password. The existing permanent key/password pair has signed a version-bound
-proof which the public key verified. Signed release builds are now running;
-publication and real in-app update acceptance remain separate approval/test
-steps. See
+workflow is available in Actions. The existing permanent key/password pair is
+verified. Both signed platform builds and Windows retention checks passed,
+including the exact unsigned-0.5 to trusted-0.5 transition. The 0.5 draft is
+complete. GitHub Actions returns HTTP 403 when attaching the verified 0.6
+payload, so its draft is incomplete and must not be published. PR #6 requires
+owner-authorized integration before retrying assembly from `main`; stable
+publication and actual in-app acceptance remain pending. See
 [v0.6 activation evidence](VALIDATION-v0.6.md).
 
 The installed unsigned v0.5 preview cannot learn a new verification key through

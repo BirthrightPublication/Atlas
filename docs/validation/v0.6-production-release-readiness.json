@@ -1,0 +1,272 @@
+{
+  "publicKeyPacketSha256": "667267e572c171192ff432236e4db84f70e60d5348f8dbe81de8a9ec875c43ea",
+  "permanentIdentityProofVerified": true,
+  "bootstrapRun": {
+    "id": 40074289786,
+    "head_sha": "f75bca66e2cf9d81747ffdf71b71249537671b4e",
+    "status": "completed",
+    "conclusion": "success",
+    "run_attempt": 1,
+    "html_url": "https://github.com/BirthrightPublication/Atlas/actions/runs/40074289786"
+  },
+  "bootstrapDraft": {
+    "id": 422592286,
+    "tag_name": "v0.5.0",
+    "target_commitish": "f75bca66e2cf9d81747ffdf71b71249537671b4e",
+    "draft": true,
+    "html_url": "https://github.com/BirthrightPublication/Atlas/releases/tag/untagged-2faf3441bc73b4aa6e6c",
+    "assets": [
+      {
+        "id": 671630269,
+        "name": "Birthright-Atlas_0.5.0_linux_x86_64.AppImage",
+        "size": 94804472,
+        "digest": "sha256:17093877f6e48ec6ce1ca980a5a3fc62ffda7dcc9e887ab6819843f5d97b991e",
+        "browser_download_url": "https://github.com/BirthrightPublication/Atlas/releases/download/untagged-2faf3441bc73b4aa6e6c/Birthright-Atlas_0.5.0_linux_x86_64.AppImage"
+      },
+      {
+        "id": 671630274,
+        "name": "Birthright-Atlas_0.5.0_linux_x86_64.AppImage.sig",
+        "size": 449,
+        "digest": "sha256:80411b7b859dd7151ca4273c67394b22643f95a4acc6715571fb259f12425f55",
+        "browser_download_url": "https://github.com/BirthrightPublication/Atlas/releases/download/untagged-2faf3441bc73b4aa6e6c/Birthright-Atlas_0.5.0_linux_x86_64.AppImage.sig"
+      },
+      {
+        "id": 671630286,
+        "name": "Birthright-Atlas_0.5.0_linux_x86_64.deb",
+        "size": 15698076,
+        "digest": "sha256:311087e9576bfa2c34bc115c4b8f87a78422f9de103aa071dc63467b279da612",
+        "browser_download_url": "https://github.com/BirthrightPublication/Atlas/releases/download/untagged-2faf3441bc73b4aa6e6c/Birthright-Atlas_0.5.0_linux_x86_64.deb"
+      },
+      {
+        "id": 671630296,
+        "name": "Birthright-Atlas_0.5.0_macos_aarch64.app.tar.gz",
+        "size": 13174411,
+        "digest": "sha256:19dffef9a215233c890a3d19d9bc85e01bdee7293f449304eb667986b2ee3c12",
+        "browser_download_url": "https://github.com/BirthrightPublication/Atlas/releases/download/untagged-2faf3441bc73b4aa6e6c/Birthright-Atlas_0.5.0_macos_aarch64.app.tar.gz"
+      },
+      {
+        "id": 671630315,
+        "name": "Birthright-Atlas_0.5.0_macos_aarch64.app.tar.gz.sig",
+        "size": 437,
+        "digest": "sha256:68dcadda0ffa8efbe297976939c9c464b4c5df5777edaf77c49af53b155a9fda",
+        "browser_download_url": "https://github.com/BirthrightPublication/Atlas/releases/download/untagged-2faf3441bc73b4aa6e6c/Birthright-Atlas_0.5.0_macos_aarch64.app.tar.gz.sig"
+      },
+      {
+        "id": 671630291,
+        "name": "Birthright-Atlas_0.5.0_macos_aarch64.dmg",
+        "size": 12756005,
+        "digest": "sha256:44bd5cae035575f9e4062a1785c90ecac1f6d8baca13e8198d0cc557d8c7994b",
+        "browser_download_url": "https://github.com/BirthrightPublication/Atlas/releases/download/untagged-2faf3441bc73b4aa6e6c/Birthright-Atlas_0.5.0_macos_aarch64.dmg"
+      },
+      {
+        "id": 671630328,
+        "name": "Birthright-Atlas_0.5.0_macos_x86_64.app.tar.gz",
+        "size": 13900604,
+        "digest": "sha256:36e377c5d75c0530ed084d34916e289541cf41e9071f4a43df12d9d77050e494",
+        "browser_download_url": "https://github.com/BirthrightPublication/Atlas/releases/download/untagged-2faf3441bc73b4aa6e6c/Birthright-Atlas_0.5.0_macos_x86_64.app.tar.gz"
+      },
+      {
+        "id": 671630336,
+        "name": "Birthright-Atlas_0.5.0_macos_x86_64.app.tar.gz.sig",
+        "size": 437,
+        "digest": "sha256:ab788a129db24cdfeeef181f4000bb5b29578aea80fc7836c68890c3b94f0fd2",
+        "browser_download_url": "https://github.com/BirthrightPublication/Atlas/releases/download/untagged-2faf3441bc73b4aa6e6c/Birthright-Atlas_0.5.0_macos_x86_64.app.tar.gz.sig"
+      },
+      {
+        "id": 671630317,
+        "name": "Birthright-Atlas_0.5.0_macos_x86_64.dmg",
+        "size": 13589431,
+        "digest": "sha256:d9b9b6e3de549864c5702dd9bae6f47e0d01f5379a60a5694491efc478ab698e",
+        "browser_download_url": "https://github.com/BirthrightPublication/Atlas/releases/download/untagged-2faf3441bc73b4aa6e6c/Birthright-Atlas_0.5.0_macos_x86_64.dmg"
+      },
+      {
+        "id": 671630254,
+        "name": "Birthright-Atlas_0.5.0_windows_x86_64-setup.exe",
+        "size": 10193296,
+        "digest": "sha256:e7edad26dd0046ccac90f943aa441c30a40c6798c2dac734088addd5a4705b12",
+        "browser_download_url": "https://github.com/BirthrightPublication/Atlas/releases/download/untagged-2faf3441bc73b4aa6e6c/Birthright-Atlas_0.5.0_windows_x86_64-setup.exe"
+      },
+      {
+        "id": 671630255,
+        "name": "Birthright-Atlas_0.5.0_windows_x86_64-setup.exe.sig",
+        "size": 449,
+        "digest": "sha256:9088f8169857ff3b8fe7376ade24203ac1bb13c47a406931e38c71c4797ffe6b",
+        "browser_download_url": "https://github.com/BirthrightPublication/Atlas/releases/download/untagged-2faf3441bc73b4aa6e6c/Birthright-Atlas_0.5.0_windows_x86_64-setup.exe.sig"
+      },
+      {
+        "id": 671630240,
+        "name": "latest.json",
+        "size": 3023,
+        "digest": "sha256:d53c1aa2d3fd6d052477daacba9cb8869c967f105f586737f21dfbe925d9fad9",
+        "browser_download_url": "https://github.com/BirthrightPublication/Atlas/releases/download/untagged-2faf3441bc73b4aa6e6c/latest.json"
+      },
+      {
+        "id": 671630244,
+        "name": "SHA256SUMS.txt",
+        "size": 771,
+        "digest": "sha256:f27d4a067ca5c727f73c90bd29158a0b6d1a469b100cc6726d1afff789dbdf49",
+        "browser_download_url": "https://github.com/BirthrightPublication/Atlas/releases/download/untagged-2faf3441bc73b4aa6e6c/SHA256SUMS.txt"
+      },
+      {
+        "id": 671630241,
+        "name": "signing-identity.json",
+        "size": 145,
+        "digest": "sha256:fdebc873c468a3e21dd2522b61de127f1f451a0dcf1a0105f4c80a5f32c23e42",
+        "browser_download_url": "https://github.com/BirthrightPublication/Atlas/releases/download/untagged-2faf3441bc73b4aa6e6c/signing-identity.json"
+      },
+      {
+        "id": 671630294,
+        "name": "THIRD_PARTY_NOTICES-darwin-aarch64.txt",
+        "size": 5222304,
+        "digest": "sha256:6d7c35f9a59e4802d32b230ee4d4545d2c5318c4f7118e789a6682570a61faaa",
+        "browser_download_url": "https://github.com/BirthrightPublication/Atlas/releases/download/untagged-2faf3441bc73b4aa6e6c/THIRD_PARTY_NOTICES-darwin-aarch64.txt"
+      },
+      {
+        "id": 671630318,
+        "name": "THIRD_PARTY_NOTICES-darwin-x86_64.txt",
+        "size": 5222298,
+        "digest": "sha256:d4e64e64425d0d833d829e31731384322bbce946d40fa7cd422b07b74759d983",
+        "browser_download_url": "https://github.com/BirthrightPublication/Atlas/releases/download/untagged-2faf3441bc73b4aa6e6c/THIRD_PARTY_NOTICES-darwin-x86_64.txt"
+      },
+      {
+        "id": 671630259,
+        "name": "THIRD_PARTY_NOTICES-linux-x86_64.txt",
+        "size": 5221317,
+        "digest": "sha256:77285dac2aa7c0b42912e3138d44a09f8b45c3bcde34519598902184f9f3c863",
+        "browser_download_url": "https://github.com/BirthrightPublication/Atlas/releases/download/untagged-2faf3441bc73b4aa6e6c/THIRD_PARTY_NOTICES-linux-x86_64.txt"
+      },
+      {
+        "id": 671630253,
+        "name": "THIRD_PARTY_NOTICES-windows-x86_64.txt",
+        "size": 5221176,
+        "digest": "sha256:ed7abd8a040cf2c8a7e6eb81e92a9405ff90469312105344f0622989856192af",
+        "browser_download_url": "https://github.com/BirthrightPublication/Atlas/releases/download/untagged-2faf3441bc73b4aa6e6c/THIRD_PARTY_NOTICES-windows-x86_64.txt"
+      },
+      {
+        "id": 671630243,
+        "name": "updater-public-key.txt",
+        "size": 153,
+        "digest": "sha256:11beeb59f325d15648395e0d5521716e5f1c460c059e3c89ddb155ed4b4b7a75",
+        "browser_download_url": "https://github.com/BirthrightPublication/Atlas/releases/download/untagged-2faf3441bc73b4aa6e6c/updater-public-key.txt"
+      },
+      {
+        "id": 671630238,
+        "name": "windows-installation-smoke.json",
+        "size": 1315,
+        "digest": "sha256:79d2a14747b03d4627efd44c07eb3259a6ea04fe85ced25fc7d16085e6965fbd",
+        "browser_download_url": "https://github.com/BirthrightPublication/Atlas/releases/download/untagged-2faf3441bc73b4aa6e6c/windows-installation-smoke.json"
+      }
+    ]
+  },
+  "targetBuildRun": {
+    "id": 40074275220,
+    "head_sha": "6f5b8b0a6c98b8a405743de1429ade1c5cc32154",
+    "status": "completed",
+    "conclusion": "failure",
+    "run_attempt": 1,
+    "html_url": "https://github.com/BirthrightPublication/Atlas/actions/runs/40074275220"
+  },
+  "targetPlatformManifests": [
+    {
+      "version": "0.6.0",
+      "platform": "darwin-aarch64",
+      "target": "aarch64-apple-darwin",
+      "signed": true,
+      "files": [
+        {
+          "filename": "Birthright-Atlas_0.6.0_macos_aarch64.dmg",
+          "sha256": "fcd73155592c1d766ed6567f584426c732c6ce356eb881329776e4beb528b54e",
+          "size": 12760095,
+          "updater": false
+        },
+        {
+          "filename": "Birthright-Atlas_0.6.0_macos_aarch64.app.tar.gz",
+          "sha256": "c41e8b191b5f473d27000edf8c4785f1f2eaba47d11067ec85ce10764fc53db4",
+          "size": 13178517,
+          "updater": true,
+          "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSQzRMVmdRRFgza1psVk9ySFFUcE02aklaTCtkV3EwWTRMenVMR1FHZmtqOUhIdjhUN3o1Vmo4WkNzOFgvenJ6WDd3eDhkSnoyQ2c3QkpvMk5iKzVaNFRBbmVnZzg1SUFZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyODI3NjM4CWZpbGU6QmlydGhyaWdodCBBdGxhcy5hcHAudGFyLmd6CXZlcnNpb246MC42LjAKYW5UWXdMdExxL21KMzJEM1g1a1RnbTVBd1UyODFRcFp2emw0Q0ZMMWF5Yy80c3p3TzlZQVV1LzdtbUJTWCtFZXZLcENnWll6cnllMjhNbUxydEpjQWc9PQo="
+        }
+      ]
+    },
+    {
+      "version": "0.6.0",
+      "platform": "windows-x86_64",
+      "target": "x86_64-pc-windows-msvc",
+      "signed": true,
+      "files": [
+        {
+          "filename": "Birthright-Atlas_0.6.0_windows_x86_64-setup.exe",
+          "sha256": "f141273c289551118742615cf5032864fff2842c6448b35de290bfb4c13ff154",
+          "size": 10192764,
+          "updater": true,
+          "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSQzRMVmdRRFgza2Nxb2ZNNjRLM05sTFlZKzFyeUs5WlBQY3VIYk9yZlZZN1FaQng5bXRNU2lWbkZSNmJEMVRyWHRzbVF0b3lKc0FIaEs4NG1BZE9Yc1VLa3lLYWVrU1FNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyODI3Nzk0CWZpbGU6QmlydGhyaWdodCBBdGxhc18wLjYuMF94NjQtc2V0dXAuZXhlCXZlcnNpb246MC42LjAKbHNaSVh4SFYwN3FGM3IrOGtVNkNiRmpyaHdNZndBL3JldEF4cXNOYWlsQlJ4UGdkR3NJM2wyd0hqcSs5eGdTNm5uVWZ5bHpRc0NlZnYrSHVGWGc5RHc9PQo="
+        }
+      ]
+    },
+    {
+      "version": "0.6.0",
+      "platform": "linux-x86_64",
+      "target": "x86_64-unknown-linux-gnu",
+      "signed": true,
+      "files": [
+        {
+          "filename": "Birthright-Atlas_0.6.0_linux_x86_64.AppImage",
+          "sha256": "ad98074788ca4e2ababe4bd26dce44dc27ebfe85fd0e1548f3d8cab8414c2acc",
+          "size": 94796280,
+          "updater": true,
+          "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSQzRMVmdRRFgza1MwVGhzaXFnL0tRVXpVVkRoNk1HQ1kxUy9vUFVxOXd0MkNEd1M5UTZqOVhoQkducWpiZXpOZ3BuV0MyZ3pyWjhLOWlpcldMSTJEcDFBMTRUS3RLQndNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyODI3NjUwCWZpbGU6QmlydGhyaWdodCBBdGxhc18wLjYuMF9hbWQ2NC5BcHBJbWFnZQl2ZXJzaW9uOjAuNi4wClVlQ3dyWjdUdXZEQkVqa1RpSGJTYWtXL1gzOXoweG52eFJGQUN0RVorUnlTQ3hlcmlNMkVYR2hPZkwvcUxURHNQWkpjM21TMjhhdFkwcmVDakFwakR3PT0K"
+        },
+        {
+          "filename": "Birthright-Atlas_0.6.0_linux_x86_64.deb",
+          "sha256": "0df0462dd658484beb526b7ee5550d6ec25348a6d0911b79ed5abf555b67dffb",
+          "size": 15700448,
+          "updater": false
+        }
+      ]
+    },
+    {
+      "version": "0.6.0",
+      "platform": "darwin-x86_64",
+      "target": "x86_64-apple-darwin",
+      "signed": true,
+      "files": [
+        {
+          "filename": "Birthright-Atlas_0.6.0_macos_x86_64.dmg",
+          "sha256": "5a5546b3c6ae81f882bd63590ed51c27f83c6cead098f414bae45216d05c59b5",
+          "size": 13583106,
+          "updater": false
+        },
+        {
+          "filename": "Birthright-Atlas_0.6.0_macos_x86_64.app.tar.gz",
+          "sha256": "7d8a0c45078c3ca2bfae83e70019966df9b9b3559646af49f09c68aad34203bc",
+          "size": 13888510,
+          "updater": true,
+          "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSQzRMVmdRRFgza1hDNUk5bm4weFFPdGtNSWVYVnFtV2Q3T0c3NlNkbkNzejRZbmcvUXZUUzk5S0dJT2NqRzBKaUltdHY3STlQZzJhOS9oYm42YUhybkRSMFZBVW1xbGc4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyODI3ODM4CWZpbGU6QmlydGhyaWdodCBBdGxhcy5hcHAudGFyLmd6CXZlcnNpb246MC42LjAKRE5nOUhLSk9aTTlKckMvQnlmZ1BKTWxGaVorNm96UmhhaHdNaExrR1BRYjUvSjBVbzhWcUFpRjB1ZDd2VERuMVc5VjI3RWk5ZzNvaGJSRGVVZzM2Qnc9PQo="
+        }
+      ]
+    }
+  ],
+  "sameVersionTransition": {
+    "runId": 40075333953,
+    "conclusion": "success",
+    "source": "87059a16dd49ede0532484596834ff6dfde2c7d8"
+  },
+  "verifiedPayload": {
+    "id": 12553053277,
+    "name": "verified-signed-release",
+    "size_in_bytes": 173839999,
+    "digest": "sha256:beae69146042fed05b20da4965bd053825e6ba023a2da6e0ca74f6baca90ecdb"
+  },
+  "verifiedPayloadRun": 40076217782,
+  "targetDraft": {
+    "id": 422594516,
+    "tag_name": "v0.6.0",
+    "target_commitish": "6f5b8b0a6c98b8a405743de1429ade1c5cc32154",
+    "draft": true,
+    "html_url": "https://github.com/BirthrightPublication/Atlas/releases/tag/untagged-7dc3ec424c762735acc2",
+    "assets": []
+  },
+  "remainingBlocker": "GitHub Actions release API returns HTTP 403; owner approval needed before integrating PR #6 and retrying assembly from main. Stable publication has not been authorized.",
+  "publishedFeedVerified": false,
+  "realNativeUpdateNowAcceptance": "pending approved publication"
+}
