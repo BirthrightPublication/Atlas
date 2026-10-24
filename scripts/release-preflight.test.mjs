@@ -124,6 +124,34 @@ test("preflight diagnoses configuration, verifies the existing identity and neve
       "signing-identity.json",
       "updater-public-key.txt",
     ]);
+    const overlayResult = spawnSync(
+      process.execPath,
+      [path.resolve("scripts/release-config.mjs")],
+      {
+        cwd: directory,
+        env: {
+          ...cleanEnv,
+          ...values,
+          ATLAS_UPDATE_PUBLIC_KEY: `${key.public.trim()}\r\n`,
+          ATLAS_UPDATE_ENDPOINT:
+            "https://github.com/BirthrightPublication/Atlas/releases/latest/download/latest.json",
+        },
+        encoding: "utf8",
+      },
+    );
+    assert.equal(overlayResult.status, 0);
+    const overlayText = await readFile(
+      path.join(directory, "src-tauri/tauri.release.conf.json"),
+      "utf8",
+    );
+    const overlay = JSON.parse(overlayText);
+    assert.equal(overlay.plugins.updater.pubkey, key.public.trim());
+    assert.equal(overlay.plugins.updater.requireSignedVersion, true);
+    assert.equal(overlay.bundle.createUpdaterArtifacts, true);
+    assert.ok(
+      !overlayText.includes(key.private.trim()),
+      "Private key entered release config",
+    );
     for (const result of [wrongPassword, mismatch, valid]) {
       assert.ok(
         !`${result.stdout}${result.stderr}`.includes(key.private.trim()),

@@ -41,7 +41,10 @@ key nor publishes or installs an update.
 The new Windows helper reuses the owner's existing key, verifies the local
 pair, and optionally uploads secrets by standard input and the public variable
 through GitHub CLI. It refuses CI execution and never creates/replaces a key.
-Its Windows syntax/guard validation is tracked separately from real owner use.
+Its [Windows tooling check](https://github.com/BirthrightPublication/Atlas/actions/runs/40072290281)
+passed at `b805bf5f922e2fa362a3a597d23af6de2bc7d1c3`: the actual Windows runner
+passed the signing-preflight security test, parsed the PowerShell helper and
+proved it refuses CI execution. Real owner upload is a separate operation.
 
 The new preflight security test passed locally: missing values, malformed
 public key, wrong password, mismatched pair, a valid version-bound proof, public
