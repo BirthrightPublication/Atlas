@@ -2,6 +2,62 @@
   "model": "0.6b",
   "nativeInstaller": true,
   "syntheticOnly": true,
-  "status": "blocked",
-  "reason": "Error: Pinned download unavailable. Check connection and retry; no unverified file was installed."
+  "verification": {
+    "checkedAt": "2026-10-24T03:59:04.268488325+00:00",
+    "model": "Qwen3-0.6B-Q8_0",
+    "verified": true
+  },
+  "cold": {
+    "authority": "Explanation only; saved planner calculations remain authoritative.",
+    "elapsedMs": 21510,
+    "engine": "local_ai",
+    "message": "This saved plan is a local model connectivity test, and no saved records were provided. Unknowns are mentioned as part of the information available.",
+    "reviewRequired": true,
+    "usage": {
+      "completion_tokens": 29,
+      "prompt_tokens": 126,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "total_tokens": 155
+    }
+  },
+  "warm": {
+    "authority": "Explanation only; saved planner calculations remain authoritative.",
+    "elapsedMs": 672,
+    "engine": "local_ai",
+    "message": "The saved plan explains a local model connectivity test, with no saved records provided.",
+    "reviewRequired": true,
+    "usage": {
+      "completion_tokens": 17,
+      "prompt_tokens": 126,
+      "prompt_tokens_details": {
+        "cached_tokens": 125
+      },
+      "total_tokens": 143
+    }
+  },
+  "stopped": {
+    "available": true,
+    "backend": "supervised-llama.cpp",
+    "benchmarked": false,
+    "busy": false,
+    "configured": true,
+    "contextTokens": 4096,
+    "defaultModel": null,
+    "enabled": true,
+    "idleUnloadSeconds": 120,
+    "maxOutputTokens": 700,
+    "message": "Local extraction runs on demand with evidence checks. Review all proposed facts before saving.",
+    "model": "Qwen3-0.6B-Q8_0",
+    "ocrAvailable": false,
+    "running": false,
+    "threads": 2,
+    "verification": "Runtime and model hashes are checked on each process start; configured paths alone do not prove validity.",
+    "verified": false
+  },
+  "status": "passed",
+  "source": "741fb17969dac4912dc83211d16fd819b0836642",
+  "environment": "Debian 13 cloud, four CPU quota, inference capped at two threads",
+  "buildProfile": "debug host; startup includes checksum verification, not an owner-PC performance guarantee"
 }

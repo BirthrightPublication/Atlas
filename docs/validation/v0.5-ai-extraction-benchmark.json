@@ -1,0 +1,209 @@
+{
+  "source": "741fb17969dac4912dc83211d16fd819b0836642",
+  "profile": "release",
+  "environment": "Debian 13 cloud; four CPU quota; inference capped at two threads",
+  "results": [
+    {
+      "case": "complete",
+      "draft": {
+        "action": "create",
+        "evidence": {
+          "address": "12 Example Street, Synthetic City",
+          "checkIn": "2026-12-12",
+          "checkOut": "2027-01-11",
+          "currency": "USD",
+          "name": "Synthetic Terrace Apartment",
+          "provider": "Example Travel",
+          "reservationId": "DEMOS-AI-001",
+          "timezone": "Europe/Lisbon",
+          "totalMinor": "N/A"
+        },
+        "extractionMethod": "local-model",
+        "fingerprint": "4eab72ad605349437f68eef306d5e985126c048cf530654b84d7b6ea6a4302b3",
+        "inference": {
+          "backend": "local-llama.cpp",
+          "elapsedMs": 10204,
+          "hardware": "Current machine only; this does not establish performance on the owner's computer.",
+          "model": "Qwen3-0.6B-Q8_0",
+          "usage": {
+            "completion_tokens": 241,
+            "prompt_tokens": 188,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "total_tokens": 429
+          }
+        },
+        "issues": [
+          "Local model proposal: review all values against the preserved source. AI does not verify a reservation or facilities.",
+          "Rejected reservationId: source evidence does not substantiate the proposed value.",
+          "Rejected totalMinor: source evidence does not substantiate the proposed value."
+        ],
+        "record": {
+          "address": "12 Example Street, Synthetic City",
+          "checkIn": "2026-12-12",
+          "checkOut": "2027-01-11",
+          "currency": "USD",
+          "facilities": {
+            "internet": null,
+            "kitchen": null,
+            "refrigerator": null,
+            "workspace": null
+          },
+          "kind": "stay",
+          "name": "Synthetic Terrace Apartment",
+          "provider": "Example Travel",
+          "reservationId": null,
+          "status": "tentative",
+          "timezone": "Europe/Lisbon",
+          "totalMinor": null
+        },
+        "sourceText": "Booking confirmed\nProperty: Synthetic Terrace Apartment\nProvider: Example Travel\nReservation ID: DEMO-AI-001\nCheck-in: 2026-12-12\nCheck-out: 2027-01-11\nTimezone: Europe/Lisbon\nTotal: USD 900.00\nAddress: 12 Example Street, Synthetic City"
+      },
+      "elapsedMs": 11449,
+      "ok": true
+    },
+    {
+      "case": "missing_information",
+      "draft": {
+        "action": "create",
+        "evidence": {
+          "address": "Synthetic Garden Room",
+          "checkIn": "2026-12-15",
+          "checkOut": "2026-12-18",
+          "currency": "USD",
+          "name": "Synthetic Garden Room",
+          "provider": "Unknown",
+          "reservationId": "DEMOS-AI-002",
+          "timezone": "UTC-5",
+          "totalMinor": "$240.00"
+        },
+        "extractionMethod": "local-model",
+        "fingerprint": "8328bc45c56a196706a90b1e8b37917085e23c5af23df46db173f3e8b59e2e1e",
+        "inference": {
+          "backend": "local-llama.cpp",
+          "elapsedMs": 8798,
+          "hardware": "Current machine only; this does not establish performance on the owner's computer.",
+          "model": "Qwen3-0.6B-Q8_0",
+          "usage": {
+            "completion_tokens": 238,
+            "prompt_tokens": 170,
+            "prompt_tokens_details": {
+              "cached_tokens": 100
+            },
+            "total_tokens": 408
+          }
+        },
+        "issues": [
+          "Local model proposal: review all values against the preserved source. AI does not verify a reservation or facilities.",
+          "Rejected timezone: source evidence does not substantiate the proposed value.",
+          "Rejected currency: source evidence does not substantiate the proposed value.",
+          "Rejected reservationId: source evidence does not substantiate the proposed value.",
+          "Rejected provider: source evidence does not substantiate the proposed value.",
+          "Rejected totalMinor: source evidence does not substantiate the proposed value."
+        ],
+        "record": {
+          "address": "Synthetic Garden Room",
+          "checkIn": "2026-12-15",
+          "checkOut": "2026-12-18",
+          "currency": null,
+          "facilities": {
+            "internet": null,
+            "kitchen": null,
+            "refrigerator": null,
+            "workspace": null
+          },
+          "kind": "stay",
+          "name": "Synthetic Garden Room",
+          "provider": null,
+          "reservationId": null,
+          "status": "tentative",
+          "timezone": null,
+          "totalMinor": null
+        },
+        "sourceText": "Booking confirmed\nProperty: Synthetic Garden Room\nReservation ID: DEMO-AI-002\nCheck-in: 2026-12-15\nCheck-out: 2026-12-18\nTotal: $240.00\nInternet has not been confirmed."
+      },
+      "elapsedMs": 8802,
+      "ok": true
+    },
+    {
+      "case": "revised",
+      "draft": {
+        "action": "create",
+        "evidence": {
+          "address": "12 Example Street, Synthetic City",
+          "checkIn": "2026-12-12",
+          "checkOut": "2027-01-12",
+          "currency": "USD",
+          "name": "Synthetic Terrace Apartment",
+          "provider": "Example Travel",
+          "reservationId": "DEMOS-AI-001",
+          "timezone": "Europe/Lisbon",
+          "totalMinor": "N/A"
+        },
+        "extractionMethod": "local-model",
+        "fingerprint": "947e7e803110c7b41945de298d2ea8c73b56d94d4ad678d5307f345052e409fb",
+        "inference": {
+          "backend": "local-llama.cpp",
+          "elapsedMs": 9355,
+          "hardware": "Current machine only; this does not establish performance on the owner's computer.",
+          "model": "Qwen3-0.6B-Q8_0",
+          "usage": {
+            "completion_tokens": 241,
+            "prompt_tokens": 190,
+            "prompt_tokens_details": {
+              "cached_tokens": 94
+            },
+            "total_tokens": 431
+          }
+        },
+        "issues": [
+          "Local model proposal: review all values against the preserved source. AI does not verify a reservation or facilities.",
+          "Rejected reservationId: source evidence does not substantiate the proposed value.",
+          "Rejected totalMinor: source evidence does not substantiate the proposed value."
+        ],
+        "record": {
+          "address": "12 Example Street, Synthetic City",
+          "checkIn": "2026-12-12",
+          "checkOut": "2027-01-12",
+          "currency": "USD",
+          "facilities": {
+            "internet": null,
+            "kitchen": null,
+            "refrigerator": null,
+            "workspace": null
+          },
+          "kind": "stay",
+          "name": "Synthetic Terrace Apartment",
+          "provider": "Example Travel",
+          "reservationId": null,
+          "status": "tentative",
+          "timezone": "Europe/Lisbon",
+          "totalMinor": null
+        },
+        "sourceText": "Revised booking confirmation\nProperty: Synthetic Terrace Apartment\nProvider: Example Travel\nReservation ID: DEMO-AI-001\nCheck-in: 2026-12-12\nCheck-out: 2027-01-12\nTimezone: Europe/Lisbon\nTotal: USD 930.00\nAddress: 12 Example Street, Synthetic City"
+      },
+      "elapsedMs": 9359,
+      "ok": true
+    },
+    {
+      "summary": {
+        "cancellation": {
+          "elapsedMs": 110,
+          "returnedError": true,
+          "runtimeStopped": true
+        },
+        "cases": 3,
+        "idleStopped": true,
+        "model": "Qwen3-0.6B-Q8_0",
+        "peakChildRssKiB": 0,
+        "platform": "linux",
+        "runtimeWasRunning": true,
+        "scope": "This machine and these synthetic fixtures only.",
+        "succeeded": 3
+      }
+    }
+  ],
+  "peakRssAvailable": false,
+  "qualityLimitation": "The 0.6B model proposed incorrect reservation IDs and unsupported amounts; validation rejected them. All retained fields still require review; deterministic parsers remain primary."
+}

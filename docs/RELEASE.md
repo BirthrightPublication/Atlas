@@ -1,6 +1,26 @@
+# Version 0.5 activation
+
+Follow [the Windows owner setup guide](OWNER-UPDATE-SETUP.md) for permanent keys,
+protected environment entries, approved main integration, signed bootstrap and
+real published-release acceptance. [v0.5 validation](VALIDATION-v0.5.md) records
+executed results separately from pending production activation.
+
+The signed workflow now checks prerequisites before building, installs the
+actual production-key-bearing Windows package over a populated v0.4 profile,
+and includes that synthetic installation report in its draft release. This
+protected workflow still requires owner configuration and must exist on the
+default branch before normal manual dispatch. Neither an unsigned CI build nor
+a disposable-key restart test activates the stable feed.
+
+After approved publication, `scripts/verify-published-release.mjs` uses only the
+public key to check the real HTTPS manifest, exact four-platform mapping,
+published SHA-256 and version-bound package signatures. Keep the actual Windows
+Update Now acceptance separate; it requires a newer published release and an
+installed bootstrap using the same permanent identity.
+
 # Release and signed update procedure
 
-For the 0.4.0 candidate and manual upgrade evidence, see
+For historical 0.4.0 candidate and manual upgrade evidence, see
 [v0.4 validation](VALIDATION-v0.4.md). Product identity, installation mode and the
 user-data directory remain unchanged. Windows CI verifies the pinned v0.3
 installer, populates synthetic records through its packaged service, installs
@@ -105,7 +125,7 @@ no preview or disposable test establishes that production has been activated.
 
 ## Version 0.4 candidate
 
-The current pipeline pins the validated v0.3 source and Windows artifact as its
+The v0.4 pipeline pinned the validated v0.3 source and Windows artifact as its
 manual upgrade baseline. Ordinary v0.4 installers preserve the established app
 identity and data directory. Disposable signed tests use 0.4.0 →
 0.4.1-update-test.1, retain the TLS/signature checks and verify native restart and

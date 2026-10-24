@@ -19,11 +19,14 @@ saved planner results, run through the authenticated loopback runtime and have
 no command/file/network tools or database-write authority. Proposed schedules
 are reviewed separately in Map. Exact money/time calculations remain in Rust.
 
-The cloud native download attempt remains blocked; see [v0.5 validation](VALIDATION-v0.5.md)
-for actual local and Windows evaluation outcomes. The catalog provenance below
-is retained. The Python helper remains optional for developers.
+The final native installer downloaded and verified the 0.6B model successfully
+after normal OS certificate trust was added. Actual inference, cancellation and
+idle shutdown passed. See [v0.5 validation](VALIDATION-v0.5.md) for measurements,
+observed extraction-quality limitations and Windows evaluation outcomes. The
+catalog provenance below is retained. The Python helper remains optional for
+developers.
 
-# Optional local inference
+## Historical developer setup and v0.1–v0.4 evidence
 
 Atlas runs without a model. Ordinary parsers, calendar records, financial
 calculations, reminders, and file import do not depend on inference. No model
@@ -151,14 +154,14 @@ applies only to the measured hardware and fixtures. The cloud machine reports
 an AMD EPYC 9V74 host, a four-CPU cgroup quota, and a 32 GiB memory cgroup limit;
 the inference configuration remains capped at two processing/generation threads.
 
-Current blocker: model metadata is accessible, but the GGUF download redirects
-to `us.aws.cdn.hf.co`, where the active cloud egress proxy returned CONNECT HTTP
-403. That exact CDN hostname was added to the saved environment configuration
-draft while preserving existing destinations; draft saving did not establish
-active access. The actual model bytes have **not** been verified locally or
-loaded, and no model inference, CPU latency, token-rate, or peak-RAM result is
-claimed. After active egress permits the CDN, run the commands above and record
-their actual results. No default model is enabled pending that evaluation.
+Historical blocker before the v0.5 native trust-store correction: model metadata
+was accessible, but GGUF downloads redirected to `us.aws.cdn.hf.co`, where the
+cloud egress proxy returned CONNECT HTTP 403. That exact CDN hostname was added
+to the saved environment configuration draft while preserving existing
+destinations; draft saving did not establish active access. At that stage, actual
+model bytes and inference were unverified. The v0.5 native installer subsequently
+downloaded and verified the model and completed the inference/lifecycle checks
+linked above. Models still require explicit download approval and enabling.
 
 The adapter's passing evidence/schema/checksum tests and the compiled benchmark
 harness establish code behavior, not successful inference. No OCR for scanned

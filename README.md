@@ -7,7 +7,8 @@ boundary and keeps an explicit offline edit queue.
 
 **Version 0.5.0: development candidate.** Connect read-only booking mailboxes,
 review reservations and revisions in the Import Center, compare saved offers,
-and check Trip Readiness. The approved neutral dark interface, bottom dock,
+and check Trip Readiness. V0.5 adds native Local AI model management, reviewed
+journey planning and selected offline trip information. The approved neutral dark interface, bottom dock,
 persistent chats, full-page Settings and Times New Roman numerals remain.
 Prepare permanent updates with the [owner activation guide](docs/OWNER-UPDATE-SETUP.md).
 Production updating requires owner signing, integration and publication; an unsigned CI download does not activate it.

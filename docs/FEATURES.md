@@ -22,12 +22,12 @@ See [v0.5 validation](VALIDATION-v0.5.md) for current evidence; the
 | Discovery                   | Editable website library, exact-date offer ranking, verified requirements, justified stretch budgets, linked journey costs, provider links | Saved-evidence comparison and immutable extension tests pass; no live travel inventory or authorized scheduled monitoring connected      |
 | Maps                        | Saved location directory and external provider directions                                                                                  | Offline map tiles / live route computation not implemented                                                                               |
 | Recurrence                  | Daily/weekly/monthly, interval, until, exceptions and per-occurrence completion                                                            | Expansion and local-time tests pass; advanced RRULE components explicitly rejected                                                       |
-| Local AI                    | Optional supervised verified runtime, pinned artifact installer, one job, caps/cancel/idle release, schema/evidence checks                 | Official Qwen metadata/licenses and llama.cpp archive verified; model CDN blocked, so no model inference or CPU benchmark claimed        |
+| Local AI                    | Optional supervised verified runtime, pinned artifact installer, one job, caps/cancel/idle release, schema/evidence checks                 | v0.5 actual 0.6B native download, inference and lifecycle checks pass; small-model extraction needs review; 1.7B unbenchmarked        |
 | Companion                   | Authenticated pairing/revocation, limited services, IndexedDB snapshot/queue, version conflicts, opt-in documents                          | Host security and real Chromium offline tests pass; trusted private HTTPS and physical iPhone unverified                                 |
-| Desktop                     | Tauri native IPC/window, OS notifications, system-browser links, managed companion host                                                    | v0.4 Linux packaged launches retained migrated v0.3 records and reopened a readiness conversation; Windows NSIS installation, v0.3 upgrade and signed-test restart passed |
-| Releases                    | Windows NSIS, Linux AppImage/deb and macOS build pipelines; exact artifact metadata                                                        | Current platform results and installer digests are recorded in the v0.4 validation report; macOS installation unverified                 |
-| Updates                     | Compiled key + HTTPS feed, real progress, backup, signature/version/target verification, install/restart                                   | See current v0.4 controlled native installation evidence; owner production signing/feed absent                                                   |
-| Assistant and notifications | Local chat sessions, contextual deterministic answers, safe navigation, durable read/dismiss state                                         | Real service/restart and browser checks; optional model inference remains separately unverified                                          |
+| Desktop                     | Tauri native IPC/window, OS notifications, system-browser links, managed companion host                                                    | v0.5 passed three Linux packaged launches/closes, Windows NSIS installation and populated v0.4 upgrades on both platforms                 |
+| Releases                    | Windows NSIS, Linux AppImage/deb and macOS build pipelines; exact artifact metadata                                                        | All four native CI jobs passed; exact installer hashes are in the v0.5 report; macOS installation unverified                              |
+| Updates                     | Compiled key + HTTPS feed, real progress, backup, signature/version/target verification, install/restart                                   | Seven v0.5 Windows controlled update cases passed, including signed installation/restart; production signing/feed requires owner setup      |
+| Assistant and notifications | Local chat sessions, contextual deterministic answers, safe navigation, durable read/dismiss state                                         | Service/restart and browser checks pass; actual optional 0.6B inference passed on Linux and Windows                                       |
 | Travel planning             | Night gaps, tentative drafts, date-line duration, workspace evidence, alternate hours/commute, immutable scenarios                         | Real core service checks; no live route or venue information                                                                             |
 
 ## Version 0.3 additions and validation
@@ -70,8 +70,9 @@ and saved listing URLs are not silently scraped.
 Authorize the selected mailbox setup in the native app and supply account
 registration settings there. A free Proton account cannot use Bridge. Validate
 private HTTPS, pairing, airplane-mode reads/edits and reconnection on an actual
-iPhone. Official model/runtime hashes are pinned; model bytes and a measured CPU
-evaluation remain blocked by model-CDN access. macOS packages still need native
+iPhone. Official model/runtime hashes are pinned; the 0.6B model has executed
+with measured inference and lifecycle checks. The 1.7B model and owner-machine
+performance remain separately unverified. macOS packages still need native
 installation/startup checks. Signed updates need protected signing
 keys, release artifacts and an activated feed. No secrets belong in chat or Git.
 
@@ -109,7 +110,7 @@ fees, facilities, freshness and recorded transport costs. Scenarios call the rea
 accounting services without saving bookings or payments. Prepared searches open
 Airbnb, Booking.com and Rome2Rio; the broader provider directory remains. Manual
 watchlist snapshots and recheck reminders do not represent automated price feeds.
-Optional AI remains independent and model inference remains unverified.
+Optional AI remained independent; actual model inference was unverified in v0.4.
 
 ## Version 0.5 evidence boundaries
 
