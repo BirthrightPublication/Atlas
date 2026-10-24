@@ -4,7 +4,7 @@ import path from 'node:path';
 
 const feed = JSON.parse(await readFile('release/latest.json', 'utf8'));
 const platforms = ['windows-x86_64', 'linux-x86_64', 'darwin-aarch64', 'darwin-x86_64'];
-const files = ['release/latest.json', 'release/SHA256SUMS.txt', 'release/windows-x86_64/windows-installation-smoke.json'];
+const files = ['release/latest.json', 'release/SHA256SUMS.txt', 'release/updater-public-key.txt', 'release/signing-identity.json', 'release/windows-x86_64/windows-installation-smoke.json'];
 for (const platform of platforms) {
   const folder = path.join('release', platform);
   const manifest = JSON.parse(await readFile(path.join(folder, 'artifacts.json'), 'utf8'));
