@@ -87,7 +87,7 @@ fn fetch(url: &str, path: &Path, size: u64, sha: &str, phase: &str) -> Result<()
         .build()
         .map_err(|_| "Download worker unavailable")?;
     let result=runtime.block_on(async {
-        let client=reqwest::Client::builder().https_only(true).connect_timeout(std::time::Duration::from_secs(30)).read_timeout(std::time::Duration::from_secs(30)).timeout(std::time::Duration::from_secs(1800)).redirect(reqwest::redirect::Policy::custom(|a|if a.previous().len()>8||a.url().scheme()!="https"{a.error("Unsafe artifact redirect")}else{a.follow()})).build().map_err(|_|"Could not start verified download")?;
+        let client=reqwest::Client::builder().user_agent(concat!("Birthright-Atlas/",env!("CARGO_PKG_VERSION"))).https_only(true).connect_timeout(std::time::Duration::from_secs(30)).read_timeout(std::time::Duration::from_secs(30)).timeout(std::time::Duration::from_secs(1800)).redirect(reqwest::redirect::Policy::custom(|a|if a.previous().len()>8||a.url().scheme()!="https"{a.error("Unsafe artifact redirect")}else{a.follow()})).build().map_err(|_|"Could not start verified download")?;
         let mut response=tokio::select! {response=client.get(url).send()=>response.map_err(|_|"Pinned download connection failed; check network access and retry")?,_=cancelled()=>return Err("Download cancelled".into())};
         if !response.status().is_success(){return Err(format!("Pinned artifact server returned HTTP {}. No unverified file was installed.",response.status().as_u16()))}
         let mut file=fs::File::create(&part).map_err(|_|"Could not create model download; check disk space")?;
