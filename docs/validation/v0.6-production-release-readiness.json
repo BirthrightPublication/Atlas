@@ -268,5 +268,11 @@
   },
   "remainingBlocker": "GitHub Actions release API returns HTTP 403; owner approval needed before integrating PR #6 and retrying assembly from main. Stable publication has not been authorized.",
   "publishedFeedVerified": false,
-  "realNativeUpdateNowAcceptance": "pending approved publication"
+  "realNativeUpdateNowAcceptance": "pending approved publication",
+  "bootstrapIndependentDownloadVerification": {
+    "bytes": 10193296,
+    "sha256": "e7edad26dd0046ccac90f943aa441c30a40c6798c2dac734088addd5a4705b12",
+    "versionBoundSignatureVerified": true,
+    "actualNativeInstallationReportMatches": true
+  }
 }

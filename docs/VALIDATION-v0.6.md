@@ -42,6 +42,10 @@ The trusted Windows 0.5.0 bootstrap is 10,193,296 bytes; SHA-256:
 `e7edad26dd0046ccac90f943aa441c30a40c6798c2dac734088addd5a4705b12`.
 The signed 0.6.0 Windows target is 10,192,764 bytes; SHA-256:
 `f141273c289551118742615cf5032864fff2842c6448b35de290bfb4c13ff154`.
+The actual bootstrap installer, public key, signature and native installation
+report were independently downloaded from the draft. Its bytes matched the
+above digest, its version-bound signature verified and its native report matched
+the exact installer hash.
 The old delivered unsigned 0.5.0 baseline was independently pinned to
 `7d94963d1223cc16fc6759aaa126420b795db073c088bc6f57a6c6296dcf9614`.
 These are distinct installers despite the bootstrap's intentionally equal version.
