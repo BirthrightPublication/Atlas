@@ -1,9 +1,19 @@
 # Activate Atlas updates once
 
-Current status: owner setup and publication are pending. A disposable-key update
-smoke test is not production activation. The existing v0.4 preview cannot learn a
-new verification key through its updater. Install the production-configured v0.5
-bootstrap manually once; later releases must use the same signing identity.
+The owner has merged PR #5 into `main` and created `release-signing`. The signed
+workflow is available in Actions. The current signing preflight reports an
+invalid `ATLAS_UPDATE_PUBLIC_KEY` value; the private-key/password secrets are
+present but their match remains unverified until the public value is corrected.
+No production installer or release has been created. See
+[v0.6 activation evidence](VALIDATION-v0.6.md).
+
+The installed unsigned v0.5 preview cannot learn a new verification key through
+its updater. Install the production-configured v0.5 bootstrap manually once;
+later releases must use the same signing identity. Preserve the data directory;
+do not uninstall or delete it.
+
+**If you already generated the permanent key, skip step 1.** Keep that key and
+its password. Correct the public variable in step 2 or use the helper below.
 
 ## 1. Generate and retain the identity on your Windows computer
 
@@ -33,23 +43,57 @@ Open repository **Settings → Environments → New environment**, name it
 `release-signing`, and apply the review/access protection available to your
 repository. Configure these environment entries:
 
-| Type | Name | Value |
-| --- | --- | --- |
-| Secret | `TAURI_SIGNING_PRIVATE_KEY` | Full contents of the private `.key` file |
-| Secret | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Its password |
-| Variable | `ATLAS_UPDATE_PUBLIC_KEY` | Full contents of the `.pub` file |
+| Type     | Name                                 | Value                                    |
+| -------- | ------------------------------------ | ---------------------------------------- |
+| Secret   | `TAURI_SIGNING_PRIVATE_KEY`          | Full contents of the private `.key` file |
+| Secret   | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Its password                             |
+| Variable | `ATLAS_UPDATE_PUBLIC_KEY`            | Full contents of the `.pub` file         |
 
 Enter values directly in GitHub's protected UI. Do not put the private file path
 in the secret: the remote runner needs the actual encrypted key contents.
 Updater signatures do not establish Windows Authenticode publisher signing.
 
+### Correct the current public-key setting
+
+On your trusted Windows computer, the guide's default public-key file is
+`%LOCALAPPDATA%\AtlasReleaseKeys\atlas-updater.key.pub`. In PowerShell:
+
+```powershell
+Get-Content -LiteralPath (Join-Path $env:LOCALAPPDATA 'AtlasReleaseKeys\atlas-updater.key.pub') -Raw | Set-Clipboard
+```
+
+Open **Settings → Environments → release-signing → Environment variables →
+ATLAS_UPDATE_PUBLIC_KEY**, paste the copied contents and save. The value is the
+whole public file's encoded text. File paths, quotation marks, private-key
+contents and placeholder text are invalid. Do not generate a replacement key.
+Rerun the failed signed workflow after saving. Its preflight now verifies a real
+version-bound proof using the existing private key and password and reports the
+public-key SHA-256 before starting native builds.
+
+### Optional Windows helper for the existing identity
+
+Use PowerShell 7 on the trusted Windows computer, with Node 24, GitHub CLI and
+this reviewed checkout. Run `npm ci` and `gh auth login` first, then:
+
+```powershell
+# Checks the existing local key/password pair; does not change GitHub.
+./scripts/setup-release-signing.ps1
+# After local verification, sends the existing secrets directly to GitHub and
+# the matching .pub contents to the environment variable.
+./scripts/setup-release-signing.ps1 -Upload
+```
+
+Use `-KeyPath 'C:\your\retained\atlas-updater.key'` if the original key is
+elsewhere. The helper never creates or overwrites a key, hides captured command
+output, sends secrets through standard input rather than command arguments,
+restores its process environment and refuses CI execution. It does not publish
+a release. Retain the encrypted backup of your original identity.
+
 ## 3. Integrate the reviewed application and workflow
 
-Review the v0.5 integration PR to `main`. It preserves all stacked v0.1–v0.4
-commits. Merge only after owner approval and the required candidate checks.
-Until `.github/workflows/release.yml` exists on the default branch, GitHub's
-normal manual workflow launcher is unavailable. Merely pushing a development
-branch does not activate it. No branch is merged by this setup guide.
+PR #5 has been merged by the owner and preserves all stacked v0.1–v0.4 commits.
+`.github/workflows/release.yml` now exists on `main`. Further changes still
+require review and owner-authorized integration; this helper never merges.
 
 After integration, open **Actions → Prepare signed draft release → Run workflow**.
 Select the reviewed release branch/commit and enter the release notes. The
@@ -77,7 +121,7 @@ bootstrap. Installation itself does not publish an update.
 ## 5. Prove a real published upgrade
 
 Populate an isolated Windows test profile with stay, transportation, budget,
-document, reminder, chat, notification and preferences. Prepare v0.5.1 with the
+document, reminder, chat, notification and preferences. Prepare v0.6.0 with the
 same production key through the real workflow. Review its complete draft and
 approve publication. Publish the stable release only after explicit owner
 approval; all referenced assets must already be uploaded and verified.
@@ -87,8 +131,8 @@ The stable endpoint is:
 Verify it returns the expected version and exact Windows x64 URL/signature.
 Open the actual installed 0.5.0 app, open Updates and click **Update Now**. Observe
 backup, real transfer progress, signature verification, installation and restart.
-Confirm 0.5.1, SQLite integrity, documents, chats, preferences, notification and
-companion state survive. Record the actual result in `VALIDATION-v0.5.md`.
+Confirm 0.6.0, SQLite integrity, documents, chats, preferences, notification and
+companion state survive. Record the actual result in `VALIDATION-v0.6.md`.
 This acceptance remains pending until performed against that published release.
 Do not publish a test-only version simply to imply success.
 

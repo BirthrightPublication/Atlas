@@ -1,0 +1,39 @@
+name: Release tooling checks
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/release*.yml"
+      - "scripts/*release*"
+      - "scripts/setup-release-signing.ps1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-tools:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24.19.0"
+          cache: npm
+      - run: npm ci
+      - name: Verify signing diagnostics and credential redaction with synthetic keys
+        run: node --test scripts/release-preflight.test.mjs
+      - name: Parse owner helper and prove it refuses CI execution
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          $null = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD 'scripts/setup-release-signing.ps1'), [ref]$tokens, [ref]$errors)
+          if ($errors.Count -ne 0) { throw ($errors | Out-String) }
+          $refused = $false
+          try { ./scripts/setup-release-signing.ps1 } catch {
+            if ($_.Exception.Message -notlike 'Use your trusted Windows computer*') { throw }
+            $refused = $true
+          }
+          if (-not $refused) { throw 'The owner signing helper must refuse cloud/CI execution.' }
+          Write-Host 'PowerShell syntax and owner-only guard passed. No owner keys were accessed or generated.'
