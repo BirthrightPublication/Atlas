@@ -1,0 +1,810 @@
+import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
+import {
+  X,
+  Save,
+  Mail,
+  ExternalLink,
+  RefreshCw,
+  Pause,
+  Shield,
+  Database,
+  Download,
+  Smartphone,
+  Clock,
+  Settings2,
+  Check,
+  AlertCircle,
+  KeyRound,
+} from "lucide-react";
+import { Settings, isDesktop, money, openExternal, rpc } from "./api";
+import { MoneyField } from "./RecordForm";
+
+import { EmailSettings } from "./EmailSettings";
+import { APP_VERSION } from "./version";
+import { ModelManager } from "./ModelManager";
+import { AiSettings, PhoneSettings } from "./Integrations";
+
+export type SettingsActions = {
+  save: () => Promise<boolean>;
+  discard: () => void;
+};
+
+const CATEGORIES = [
+  "General",
+  "Appearance",
+  "Travel Preferences",
+  "Work Schedule",
+  "Budget Defaults",
+  "Notifications",
+  "Email & Integrations",
+  "Local AI",
+  "Privacy & Data",
+  "Application Updates",
+  "About Atlas",
+];
+
+export function SettingsPanel({
+  settings,
+  initialCategory = "General",
+  updates,
+  onNotifications,
+  onBudget,
+  onImports,
+  controller,
+  onDirtyChange,
+  onRefresh,
+}: {
+  settings: Settings;
+  initialCategory?: string;
+  updates: ReactNode;
+  onNotifications: () => void;
+  onBudget: () => void;
+  onImports: () => void;
+  controller: { current: SettingsActions | null };
+  onDirtyChange: (dirty: boolean) => void;
+  onRefresh: () => Promise<void>;
+}) {
+  const [tab, setTab] = useState(initialCategory);
+  const baseline = useRef(settings);
+  useEffect(() => setTab(initialCategory), [initialCategory]);
+  const [form, setForm] = useState<Settings>({
+    ...settings,
+    preferences: { ...settings.preferences },
+  });
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [restoreFile, setRestoreFile] = useState("");
+  const set = (key: string, value: any) =>
+    setForm((f) => ({ ...f, [key]: value }));
+  const pref = (key: string, value: any) =>
+    set("preferences", { ...form.preferences, [key]: value });
+  async function run(fn: () => Promise<any>, message: string) {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await fn();
+      await onRefresh();
+      setNotice(
+        typeof result?.path === "string"
+          ? `${message} ${result.path}`
+          : message,
+      );
+    } catch (e) {
+      setError(String(e instanceof Error ? e.message : e));
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function persist() {
+    const changed = Object.fromEntries(
+      Object.entries(form).filter(
+        ([key, value]) =>
+          JSON.stringify(value) !== JSON.stringify(baseline.current[key]),
+      ),
+    );
+    setBusy(true);
+    setError("");
+    try {
+      await rpc("settings.save", { settings: changed });
+      baseline.current = structuredClone(form);
+      onDirtyChange(false);
+      await onRefresh();
+      setNotice("Preferences saved.");
+      return true;
+    } catch (e) {
+      setError(String(e));
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+  const dirty = Object.entries(form).some(
+    ([key, value]) =>
+      JSON.stringify(value) !== JSON.stringify(baseline.current[key]),
+  );
+  useEffect(() => {
+    onDirtyChange(dirty);
+  }, [dirty, onDirtyChange]);
+  useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => {
+      if (dirty) {
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+  controller.current = {
+    save: persist,
+    discard: () => {
+      setForm(structuredClone(baseline.current));
+      onDirtyChange(false);
+    },
+  };
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    await persist();
+  }
+  const editable = ["General", "Travel Preferences", "Work Schedule"].includes(
+    tab,
+  );
+  return (
+    <section className="settings-page" aria-labelledby="settings-title">
+      <div className="modal-heading">
+        <div>
+          <span className="eyebrow">BIRTHRIGHT: ATLAS</span>
+          <h2 id="settings-title">Settings</h2>
+        </div>
+      </div>
+      <div
+        className="settings-tabs"
+        role="tablist"
+        aria-label="Settings categories"
+        onKeyDown={(event) => {
+          const current = CATEGORIES.indexOf(tab);
+          const next =
+            event.key === "ArrowRight"
+              ? (current + 1) % CATEGORIES.length
+              : event.key === "ArrowLeft"
+                ? (current + CATEGORIES.length - 1) % CATEGORIES.length
+                : event.key === "Home"
+                  ? 0
+                  : event.key === "End"
+                    ? CATEGORIES.length - 1
+                    : -1;
+          if (next >= 0) {
+            event.preventDefault();
+            setTab(CATEGORIES[next]);
+            document.getElementById(`settings-tab-${next}`)?.focus();
+          }
+        }}
+      >
+        {CATEGORIES.map((category, index) => (
+          <button
+            key={category}
+            id={`settings-tab-${index}`}
+            role="tab"
+            aria-selected={tab === category}
+            aria-controls="settings-content"
+            tabIndex={tab === category ? 0 : -1}
+            className={tab === category ? "active" : ""}
+            onClick={() => setTab(category)}
+          >
+            {category}
+          </button>
+        ))}
+      </div>
+      <div
+        className="detail-content settings-content"
+        id="settings-content"
+        role="tabpanel"
+        aria-labelledby={`settings-tab-${CATEGORIES.indexOf(tab)}`}
+        tabIndex={0}
+      >
+        {error && (
+          <div role="alert" className="error-banner">
+            {error}
+          </div>
+        )}
+        {notice && (
+          <div role="status" className="success-banner">
+            <Check size={15} />
+            {notice}
+          </div>
+        )}
+        {editable && (
+          <form onSubmit={save}>
+            {tab === "General" && (
+              <>
+                <div className="form-grid">
+                  <label className="field">
+                    <span>Display currency</span>
+                    <input
+                      value={form.currency || "USD"}
+                      maxLength={3}
+                      onChange={(e) =>
+                        set("currency", e.target.value.toUpperCase())
+                      }
+                    />
+                  </label>
+                  <label className="field">
+                    <span>New entry context</span>
+                    <select
+                      value={form.context || "on_foot"}
+                      onChange={(e) => set("context", e.target.value)}
+                    >
+                      <option value="on_foot">On Foot</option>
+                      <option value="on_road">On Road</option>
+                    </select>
+                  </label>
+                </div>
+                <label className="field">
+                  <span>Confirmed current location</span>
+                  <input
+                    value={form.currentLocation || ""}
+                    onChange={(e) => set("currentLocation", e.target.value)}
+                    placeholder="City or area you are actually in"
+                  />
+                </label>
+                <label className="field">
+                  <span>Current local timezone</span>
+                  <input
+                    value={
+                      form.currentTimezone ||
+                      Intl.DateTimeFormat().resolvedOptions().timeZone
+                    }
+                    onChange={(e) => set("currentTimezone", e.target.value)}
+                    placeholder="Europe/Lisbon"
+                  />
+                </label>
+                <p className="field-help">
+                  Your confirmed location is separate from future stay
+                  locations. Atlas does not infer it from your IP address.
+                </p>
+              </>
+            )}
+            {tab === "Travel Preferences" && (
+              <>
+                <h3 className="form-section">Stay preferences</h3>
+                <label className="field">
+                  <span>Preset name</span>
+                  <input
+                    value={form.preferences?.name || ""}
+                    onChange={(e) => pref("name", e.target.value)}
+                    placeholder="My travel preferences"
+                  />
+                </label>
+                <label className="field">
+                  <span>Preferred accommodation</span>
+                  <select
+                    value={form.preferences?.preferredType || "any"}
+                    onChange={(e) => pref("preferredType", e.target.value)}
+                  >
+                    <option value="any">Any accommodation</option>
+                    <option value="entire">Entire apartments and homes</option>
+                    <option value="room">Private rooms</option>
+                    <option value="vehicle">Vehicle / nature stays</option>
+                  </select>
+                </label>
+                <div className="form-grid">
+                  <MoneyField
+                    label="Monthly accommodation target"
+                    value={form.preferences?.monthlyTargetMinor || 0}
+                    currency={form.currency || "USD"}
+                    onChange={(v) => pref("monthlyTargetMinor", v)}
+                  />
+                  <MoneyField
+                    label="Stretch cap (requires a reason)"
+                    value={form.preferences?.stretchCapMinor || 0}
+                    currency={form.currency || "USD"}
+                    onChange={(v) => pref("stretchCapMinor", v)}
+                  />
+                </div>
+                <p className="field-help">
+                  Targets help compare date-specific offers. Atlas never assumes
+                  a month is 30 nights or silently increases a cap.
+                </p>
+                {[
+                  "refrigeratorRequired",
+                  "workspacePriority",
+                  "kitchenRequired",
+                  "scenicPreferred",
+                ].map((key, i) => (
+                  <label className="check-field" key={key}>
+                    <input
+                      type="checkbox"
+                      checked={!!form.preferences?.[key]}
+                      onChange={(e) => pref(key, e.target.checked)}
+                    />
+                    {
+                      [
+                        "Refrigerator required",
+                        "Usable laptop workspace is a priority",
+                        "Kitchen required",
+                        "Scenic views preferred",
+                      ][i]
+                    }
+                  </label>
+                ))}
+                <label className="field">
+                  <span>Surroundings for this preset</span>
+                  <select
+                    value={form.preferences?.surroundings || "flexible"}
+                    onChange={(e) => pref("surroundings", e.target.value)}
+                  >
+                    {["flexible", "quiet", "social", "urban", "nature"].map(
+                      (s) => (
+                        <option key={s}>{s}</option>
+                      ),
+                    )}
+                  </select>
+                </label>
+                <label className="field">
+                  <span>Interests</span>
+                  <textarea
+                    value={
+                      Array.isArray(form.preferences?.interests)
+                        ? form.preferences.interests.join(", ")
+                        : form.preferences?.interests || ""
+                    }
+                    onChange={(e) =>
+                      pref(
+                        "interests",
+                        e.target.value
+                          .split(",")
+                          .map((s) => s.trim())
+                          .filter(Boolean),
+                      )
+                    }
+                    placeholder="Nature, architecture, markets…"
+                    rows={3}
+                  />
+                </label>
+                <button
+                  className="secondary"
+                  type="button"
+                  onClick={() => {
+                    const name = form.preferences?.name || "Unnamed preset";
+                    set("presets", [
+                      ...(form.presets || []).filter(
+                        (p: any) => p.name !== name,
+                      ),
+                      { ...form.preferences, name },
+                    ]);
+                    setNotice("Preset added. Save preferences to persist it.");
+                  }}
+                >
+                  Save as reusable preset
+                </button>
+                {(form.presets || []).length > 0 && (
+                  <label className="field">
+                    <span>Load saved preset</span>
+                    <select
+                      defaultValue=""
+                      onChange={(e) => {
+                        if (e.target.value)
+                          set("preferences", {
+                            ...form.presets[Number(e.target.value)],
+                          });
+                      }}
+                    >
+                      <option value="">Choose a preset…</option>
+                      {form.presets.map((p: any, i: number) => (
+                        <option value={i} key={i}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+              </>
+            )}
+            {tab === "Work Schedule" && (
+              <>
+                <label className="field">
+                  <span>Employer timezone mode</span>
+                  <select
+                    value={form.officeTimezoneMode || "iana"}
+                    onChange={(e) => set("officeTimezoneMode", e.target.value)}
+                  >
+                    <option value="iana">
+                      IANA timezone (daylight-saving aware)
+                    </option>
+                    <option value="fixed">Explicit fixed UTC offset</option>
+                  </select>
+                </label>
+                {form.officeTimezoneMode === "fixed" && (
+                  <label className="field">
+                    <span>Fixed UTC offset in minutes (for example −480)</span>
+                    <input
+                      type="number"
+                      min="-840"
+                      max="840"
+                      value={form.officeFixedOffsetMinutes ?? 0}
+                      onChange={(e) =>
+                        set("officeFixedOffsetMinutes", Number(e.target.value))
+                      }
+                    />
+                  </label>
+                )}
+
+                <label className="field">
+                  <span>Employer timezone (IANA)</span>
+                  <input
+                    value={form.officeTimezone || "America/Los_Angeles"}
+                    onChange={(e) => set("officeTimezone", e.target.value)}
+                    required
+                  />
+                </label>
+                <div className="form-grid">
+                  <label className="field">
+                    <span>Office opens</span>
+                    <input
+                      type="time"
+                      value={form.workStart || "08:00"}
+                      onChange={(e) => set("workStart", e.target.value)}
+                      required
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Office closes</span>
+                    <input
+                      type="time"
+                      value={form.workEnd || "17:00"}
+                      onChange={(e) => set("workEnd", e.target.value)}
+                      required
+                    />
+                  </label>
+                </div>
+                <div className="form-grid">
+                  <label className="field">
+                    <span>Hours per employer workday</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="24"
+                      value={form.workHours ?? 8}
+                      onChange={(e) => set("workHours", Number(e.target.value))}
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Minimum office overlap (hours)</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="24"
+                      value={form.overlapHours ?? 4}
+                      onChange={(e) =>
+                        set("overlapHours", Number(e.target.value))
+                      }
+                    />
+                  </label>
+                </div>
+                <label className="field">
+                  <span>Employer workdays</span>
+                </label>
+                <div className="weekday-controls">
+                  {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(
+                    (d, i) => {
+                      const days = form.workdays || [1, 2, 3, 4, 5];
+                      const day = i + 1;
+                      return (
+                        <button
+                          type="button"
+                          key={d}
+                          className={days.includes(day) ? "active" : ""}
+                          onClick={() =>
+                            set(
+                              "workdays",
+                              days.includes(day)
+                                ? days.filter((n: number) => n !== day)
+                                : [...days, day],
+                            )
+                          }
+                        >
+                          {d}
+                        </button>
+                      );
+                    },
+                  )}
+                </div>
+                <label className="field">
+                  <span>
+                    Employer holidays / exceptions (one date per line)
+                  </span>
+                  <textarea
+                    rows={4}
+                    value={(form.holidays || []).join("\n")}
+                    onChange={(e) =>
+                      set(
+                        "holidays",
+                        e.target.value
+                          .split("\n")
+                          .map((s) => s.trim())
+                          .filter(Boolean),
+                      )
+                    }
+                    placeholder="2026-12-25"
+                  />
+                </label>
+                <label className="field">
+                  <span>Daily break (minutes)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="240"
+                    value={form.breakMinutes || 0}
+                    onChange={(e) =>
+                      set("breakMinutes", Number(e.target.value))
+                    }
+                  />
+                </label>
+                <h3 className="form-section">
+                  Personal destination-local limits
+                </h3>
+                <label className="check-field">
+                  <input
+                    type="checkbox"
+                    checked={!!form.localDayRestrictions}
+                    onChange={(e) =>
+                      set(
+                        "localDayRestrictions",
+                        e.target.checked
+                          ? { start: "07:00", end: "22:00" }
+                          : null,
+                      )
+                    }
+                  />
+                  Limit suggested work to a local-day window
+                </label>
+                {form.localDayRestrictions && (
+                  <div className="form-grid">
+                    <label className="field">
+                      <span>Earliest local start</span>
+                      <input
+                        type="time"
+                        value={form.localDayRestrictions.start || "07:00"}
+                        onChange={(e) =>
+                          set("localDayRestrictions", {
+                            ...form.localDayRestrictions,
+                            start: e.target.value,
+                          })
+                        }
+                      />
+                    </label>
+                    <label className="field">
+                      <span>Latest local end</span>
+                      <input
+                        type="time"
+                        value={form.localDayRestrictions.end || "22:00"}
+                        onChange={(e) =>
+                          set("localDayRestrictions", {
+                            ...form.localDayRestrictions,
+                            end: e.target.value,
+                          })
+                        }
+                      />
+                    </label>
+                  </div>
+                )}
+                <p className="info-note">
+                  Office dates govern workday requirements. Destination dates
+                  can differ. IANA timezone rules account for daylight-saving
+                  changes.
+                </p>
+              </>
+            )}
+            <div className="form-actions">
+              <button type="submit" className="primary" disabled={busy}>
+                <Save size={15} />
+                {busy ? "Saving…" : "Save preferences"}
+              </button>
+            </div>
+          </form>
+        )}
+        {tab === "Appearance" && (
+          <section className="settings-section">
+            <h3>Neutral dark</h3>
+            <p>
+              Charcoal surfaces, crisp text and restrained gray accents. The
+              default appearance in Atlas {APP_VERSION}.
+            </p>
+            <div
+              className="theme-preview"
+              aria-label="Neutral dark theme preview"
+            >
+              <span>Birthright: Atlas</span>
+              <div />
+              <div />
+              <strong>
+                <Check size={16} />
+                Active theme
+              </strong>
+            </div>
+            <p className="field-help">
+              Additional themes are not available in this release. Atlas follows
+              your system’s reduced-motion preference.
+            </p>
+          </section>
+        )}
+        {tab === "Budget Defaults" && (
+          <section className="settings-section">
+            <h3>Monthly budgets</h3>
+            <p>
+              Income, opening balance, protected reserve and daily allowance are
+              saved separately for each month and currency. Edit them in Budget;
+              existing payments and recorded costs stay intact.
+            </p>
+            <button className="secondary" onClick={onBudget}>
+              Open budget
+            </button>
+            <p className="field-help">
+              Automatic defaults for future months are not configured.
+              Accommodation targets are in Travel Preferences.
+            </p>
+          </section>
+        )}
+        {tab === "Notifications" && (
+          <section className="settings-section">
+            <h3>Reminders & delivery</h3>
+            <p>
+              Atlas delivers reminders while the desktop app is running. Each
+              reminder has its own snooze, dismissal and catch-up policy. Your
+              operating system controls notification banners.
+            </p>
+            <h3>Booking reminder rules</h3>
+            <p className="field-help">
+              Off by default. Enabled rules create future reminders when a
+              booking is saved. Revisions update pending times; snoozed or
+              dismissed choices are retained.
+            </p>
+            {[
+              ["checkin", "Check in tomorrow"],
+              ["checkout", "Checkout approaching"],
+              ["departure", "Departure in two hours"],
+              ["cancellation", "Cancellation deadline tomorrow"],
+              ["payment", "Payment due tomorrow"],
+            ].map(([key, label]) => (
+              <label className="check-field" key={key}>
+                <input
+                  type="checkbox"
+                  checked={form.bookingReminderRules?.[key] === true}
+                  onChange={(e) =>
+                    set("bookingReminderRules", {
+                      ...form.bookingReminderRules,
+                      [key]: e.target.checked,
+                    })
+                  }
+                />
+                {label}
+              </label>
+            ))}
+            <button className="secondary" onClick={onNotifications}>
+              Manage reminders
+            </button>
+            <p className="field-help">
+              Closed-app phone push is not available. Calendar export remains
+              available from Calendar.
+            </p>
+          </section>
+        )}
+        {tab === "Email & Integrations" && (
+          <>
+            <details className="settings-disclosure" open>
+              <summary>Email imports</summary>
+              <EmailSettings onImports={onImports} />
+            </details>
+            <details className="settings-disclosure">
+              <summary>Local AI</summary>
+              <AiSettings settings={settings} onRefresh={onRefresh} />
+            </details>
+            <details className="settings-disclosure">
+              <summary>Phone companion</summary>
+              <PhoneSettings />
+            </details>
+          </>
+        )}
+        {tab === "Local AI" && (
+          <>
+            <ModelManager settings={settings} onRefresh={onRefresh} />
+            <AiSettings settings={settings} onRefresh={onRefresh} />
+          </>
+        )}
+        {tab === "Privacy & Data" && (
+          <>
+            <div className="settings-feature">
+              <Database size={24} />
+              <div>
+                <h3>Your data lives with you.</h3>
+                <p>
+                  Records, documents, and backups are stored in your OS
+                  user-data directory. Plain SQLite is not encrypted. Protect
+                  your device with OS encryption and a strong account password.
+                </p>
+              </div>
+            </div>
+            <button
+              className="secondary full"
+              disabled={busy}
+              onClick={() => run(() => rpc("backup.export"), "Backup saved:")}
+            >
+              <Download size={16} />
+              Create a local backup
+            </button>
+            <h3 className="form-section">Restore a local backup</h3>
+            <p className="field-help">
+              Choose the basename of an Atlas backup from its own backups
+              folder. Atlas creates a safety backup before restoring. Close
+              other Atlas clients first.
+            </p>
+            <label className="field">
+              <span>Backup filename</span>
+              <input
+                value={restoreFile}
+                onChange={(e) => setRestoreFile(e.target.value)}
+                placeholder="atlas-backup-…"
+              />
+            </label>
+            <button
+              className="secondary"
+              disabled={busy || !restoreFile}
+              onClick={() =>
+                run(
+                  () => rpc("backup.restore", { filename: restoreFile }),
+                  "Backup restored.",
+                )
+              }
+            >
+              Restore backup
+            </button>
+          </>
+        )}
+        {tab === "Application Updates" && updates}
+        {tab === "About Atlas" && (
+          <section className="settings-section">
+            <h3>Birthright: Atlas</h3>
+            <p>Version {APP_VERSION} · Development preview</p>
+            <p>
+              Your stays, travel, work and spending in one local workspace. No
+              telemetry. Records remain in the same user-data directory when you
+              update.
+            </p>
+            <p className="field-help">
+              Third-party notices are included with the installed application.
+              No application license has been selected.
+            </p>
+          </section>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function AiStatus() {
+  const [status, setStatus] = useState<any>(null);
+  useEffect(() => {
+    rpc("ai.status")
+      .then(setStatus)
+      .catch((e) => setStatus({ message: String(e) }));
+  }, []);
+  return (
+    <div className="info-note">
+      <div>
+        <strong>
+          {status?.available
+            ? "Local inference available"
+            : "Optional local inference"}
+        </strong>
+        <p>
+          {status?.message ||
+            status?.reason ||
+            "The calendar, exact calculations, manual entry, and ordinary import parsers work with AI off. Model installation and CPU benchmarking are separate from application updates."}
+        </p>
+        {status?.model && <small>Model: {status.model}</small>}
+      </div>
+    </div>
+  );
+}

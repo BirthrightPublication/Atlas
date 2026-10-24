@@ -1,0 +1,28 @@
+[package]
+name = "atlas-desktop"
+version.workspace = true
+edition.workspace = true
+description = "Birthright: Atlas local travel planner"
+default-run = "atlas"
+
+[[bin]]
+name = "atlas"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[features]
+update-smoke = ["dep:reqwest"]
+
+[dependencies]
+atlas-core = { path = "../crates/atlas-core" }
+tauri = { version = "2", features = [] }
+tauri-plugin-notification = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-updater = "2"
+serde_json = "1"
+semver = "1"
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider"], optional = true }
+url = "2"
+tokio = { version = "1", features = ["time"] }

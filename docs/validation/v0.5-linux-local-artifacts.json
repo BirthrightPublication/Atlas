@@ -1,0 +1,20 @@
+{
+  "version": "0.5.0",
+  "platform": "linux-x86_64",
+  "target": "x86_64-unknown-linux-gnu",
+  "signed": false,
+  "files": [
+    {
+      "filename": "Birthright-Atlas_0.5.0_linux_x86_64.AppImage",
+      "sha256": "f3f79d997ff5cb5577d47854d5f8c920b206456c04d953416f23cc37db407504",
+      "size": 124439032,
+      "updater": true
+    },
+    {
+      "filename": "Birthright-Atlas_0.5.0_linux_x86_64.deb",
+      "sha256": "4cb45cd0b07150c5d930fac5a349046ab3ecbb6a06d401171d58c18d71528883",
+      "size": 22819212,
+      "updater": false
+    }
+  ]
+}

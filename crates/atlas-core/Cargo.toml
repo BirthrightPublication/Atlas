@@ -1,0 +1,32 @@
+[package]
+name = "atlas-core"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.32", features = ["bundled", "backup"] }
+chrono = { version = "0.4", features = ["serde"] }
+chrono-tz = "0.10"
+uuid = { version = "1", features = ["v4", "serde"] }
+sha2 = "0.10"
+thiserror = "2"
+base64 = "0.22"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls", "rustls-tls-native-roots"] }
+url = "2"
+rand = "0.8"
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
+mailparse = "0.15"
+native-tls = "0.2"
+pdf-extract = "0.8"
+regex = "1"
+semver = "1"
+
+zip = { version = "4.6.1", default-features = false, features = ["deflate"] }
+flate2 = "1.1.10"
+tar = "0.4.46"
+tokio = { version = "1", features = ["rt", "time", "macros"] }
+
+[dev-dependencies]
+tempfile = "3"

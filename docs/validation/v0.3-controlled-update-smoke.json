@@ -1,0 +1,37 @@
+{
+  "status": "passed",
+  "stage": "Run controlled case valid",
+  "productionSigningConfigured": false,
+  "disposableTestCredentials": true,
+  "transport": "HTTPS with an explicit disposable CA; TLS validation enabled",
+  "cases": [
+    {
+      "name": "older",
+      "observedVersion": "0.3.0",
+      "passed": true
+    },
+    {
+      "name": "wrong-platform",
+      "observedVersion": "0.3.0",
+      "passed": true
+    },
+    {
+      "name": "bad-signature",
+      "observedVersion": "0.3.0",
+      "passed": true
+    },
+    {
+      "name": "interrupted",
+      "observedVersion": "0.3.0",
+      "passed": true
+    },
+    {
+      "name": "valid",
+      "observedVersion": "0.3.1-update-test.1",
+      "passed": true
+    }
+  ],
+  "nativeRestart": true,
+  "testInstallerSha256": "da4cae14704acee4d7331b471b9afe6afd649f08b2f3fdf391822fb74a27cb8c",
+  "populatedDataRetained": true
+}

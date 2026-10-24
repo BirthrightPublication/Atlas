@@ -1,0 +1,40 @@
+{
+  "models": {
+    "1.7b": {
+      "name": "Qwen3-1.7B-Q8_0",
+      "repo": "Qwen3-1.7B-GGUF",
+      "revision": "90862c4b9d2787eaed51d12237eafdfe7c5f6077",
+      "bytes": 1834426016,
+      "sha256": "061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a"
+    },
+    "0.6b": {
+      "name": "Qwen3-0.6B-Q8_0",
+      "repo": "Qwen3-0.6B-GGUF",
+      "revision": "23749fefcc72300e3a2ad315e1317431b06b590a",
+      "bytes": 639446688,
+      "sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031"
+    }
+  },
+  "runtimes": {
+    "linux-x86_64": {
+      "filename": "llama-b11827-bin-ubuntu-x64.tar.gz",
+      "bytes": 22343386,
+      "sha256": "7c1de2b2a139aa90e28b88d44a75f5966485604f68aa0ccdc2339959bca9b5f6"
+    },
+    "windows-x86_64": {
+      "filename": "llama-b11827-bin-win-cpu-x64.zip",
+      "bytes": 24074494,
+      "sha256": "2740eeac6ed9b727a3a1002f5a42e74defa3c4cbb9a8b42b11356a07f969cb13"
+    },
+    "darwin-aarch64": {
+      "filename": "llama-b11827-bin-macos-arm64.tar.gz",
+      "bytes": 16153601,
+      "sha256": "08e6c4157426dbaebaea8b49639fc982a502c39726f310ec8f3985ed683147d9"
+    },
+    "darwin-x86_64": {
+      "filename": "llama-b11827-bin-macos-x64.tar.gz",
+      "bytes": 11888988,
+      "sha256": "9c4122caebacda10ae16d5cf7f437e172b6ff4def50c8b0fd6adf8824378906c"
+    }
+  }
+}

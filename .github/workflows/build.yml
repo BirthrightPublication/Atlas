@@ -1,0 +1,97 @@
+name: Validate and package
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: atlas-build-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2022
+            target: x86_64-pc-windows-msvc
+            bundles: nsis
+          - runner: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            bundles: appimage,deb
+          - runner: macos-14
+            target: aarch64-apple-darwin
+            bundles: dmg
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
+            bundles: dmg
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24.19.0'
+          cache: npm
+      - name: Install Linux system prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev patchelf
+      - name: Install pinned Rust
+        shell: bash
+        run: rustup toolchain install 1.90.0 --profile minimal --component rustfmt --component clippy --target '${{ matrix.target }}'
+      - name: Install locked frontend dependencies
+        run: npm ci
+      - name: Build frontend for native validation
+        run: npm run build
+      - name: Test native services
+        run: cargo test --workspace --locked
+      - name: Test exact money input and signed artifacts
+        run: node --test scripts/release.test.mjs tests/money-input.test.mjs
+      - name: Test controlled Windows HTTPS update feed
+        if: runner.os == 'Windows'
+        run: node --test scripts/update-test-feed.test.mjs
+      - name: Build native installer
+        run: node scripts/build-desktop.mjs --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+      - name: Stage exact artifacts
+        id: stage
+        run: node scripts/stage-release.mjs ${{ matrix.target }}
+      - name: Evaluate optional native Local AI with explicitly approved synthetic download
+        if: runner.os == 'Windows'
+        timeout-minutes: 12
+        run: node scripts/benchmark-native-ai.mjs --approve-model-download --host=target/x86_64-pc-windows-msvc/release/atlas-host.exe
+      - name: Prepare verified v0.4 installer for upgrade validation
+        if: runner.os == 'Windows'
+        id: previous
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/prepare-windows-upgrade.ps1
+      - name: Verify Windows installation and v0.4 manual upgrade
+        if: runner.os == 'Windows'
+        shell: pwsh
+        timeout-minutes: 45
+        run: |
+          $config = Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
+          $installer = Join-Path $PWD "release/windows-x86_64/Birthright-Atlas_$($config.version)_windows_x86_64-setup.exe"
+          ./scripts/smoke-windows.ps1 -InstallerPath $installer -PreviousInstallerPath '${{ steps.previous.outputs.installer }}' -PreviousInstallerSha256 '${{ steps.previous.outputs.sha256 }}' -ControlledUpdate
+      - name: Report artifact hashes and synthetic native validation
+        if: ${{ always() && steps.stage.outcome == 'success' }}
+        shell: bash
+        run: node scripts/report-validation.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: ${{ always() && steps.stage.outcome == 'success' }}
+        with:
+          name: atlas-${{ matrix.target }}
+          path: release/
+          if-no-files-found: error
+          retention-days: 14

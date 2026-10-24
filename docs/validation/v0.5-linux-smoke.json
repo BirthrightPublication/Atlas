@@ -1,0 +1,36 @@
+{
+  "version": "0.5.0",
+  "applicationSource": "06a739d075779ca9056b5de721b798a490538ea7",
+  "ciSource": "107e7260abeaa65aa5414c67bb3607f4fdad7c53",
+  "sourceNote": "Only release workflow, draft packaging and owner documentation differ; application code is identical.",
+  "package": "Birthright-Atlas_0.5.0_linux_x86_64.AppImage",
+  "sha256": "f3f79d997ff5cb5577d47854d5f8c920b206456c04d953416f23cc37db407504",
+  "launchMethod": "Extracted AppImage AppRun in verified read-only SDK namespace",
+  "nativeWindowLaunches": 3,
+  "cleanWindowCloses": 3,
+  "exitCodes": [
+    0,
+    0,
+    0
+  ],
+  "originalV04RecordsUnchanged": 9,
+  "documentsUnchanged": 1,
+  "schemaBefore": 5,
+  "schemaAfter": 5,
+  "integrity": "ok",
+  "recordsIdsVersionsHistorySettingsConversationsNotificationsAndAccountingRetainedExactly": true,
+  "modelCacheMarkerRetained": true,
+  "viewsInspected": [
+    "Native version 0.5.0",
+    "Local AI catalog and controls",
+    "Map and tentative journey form",
+    "Reopened saved Planner conversation"
+  ],
+  "webkitSandbox": "Enabled; no disabling flags or variables",
+  "environment": "Debian 13 and Xvfb with the verified GTK/WebKit SDK namespace",
+  "limits": [
+    "Deb installation not tested",
+    "Older Linux distribution compatibility not established",
+    "Inference evaluated separately in the isolated pinned-model profile"
+  ]
+}
