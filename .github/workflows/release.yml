@@ -52,10 +52,10 @@ jobs:
             bundles: appimage,deb
           - runner: macos-14
             target: aarch64-apple-darwin
-            bundles: dmg
+            bundles: app,dmg
           - runner: macos-15-intel
             target: x86_64-apple-darwin
-            bundles: dmg
+            bundles: app,dmg
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
