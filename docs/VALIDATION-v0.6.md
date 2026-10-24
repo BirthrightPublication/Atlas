@@ -51,6 +51,16 @@ at `f75bca66e2cf9d81747ffdf71b71249537671b4e` and
 at `6f5b8b0a6c98b8a405743de1429ade1c5cc32154`. No platform is silently omitted
 and no partial feed is published.
 
+Both corrected Windows signed-build jobs have passed their populated v0.4
+installation/retention checks. The exact-current-preview transition has a
+separate [Windows check](../.github/workflows/bootstrap-transition.yml): it
+verifies the previously delivered unsigned 0.5.0 installer SHA-256
+`7d94963d1223cc16fc6759aaa126420b795db073c088bc6f57a6c6296dcf9614`, verifies the
+new 0.5.0 bootstrap against the pinned permanent public identity, populates the
+old installed version and installs the same-version trusted bootstrap over it.
+Its result remains separate from both the older baseline and published-update
+acceptance below.
+
 No stable or draft GitHub release exists. Consequently the public
 `https://github.com/BirthrightPublication/Atlas/releases/latest/download/latest.json`
 endpoint cannot provide a production update yet. No preview artifact is
