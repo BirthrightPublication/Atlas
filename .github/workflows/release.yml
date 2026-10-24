@@ -7,6 +7,11 @@ on:
         description: Release notes for the draft (review before publishing)
         required: true
         type: string
+      reuse_run:
+        description: Optional prior signed-build run to assemble without rebuilding identical application source
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -39,6 +44,7 @@ jobs:
           retention-days: 14
   signed-build:
     needs: preflight
+    if: inputs.reuse_run == ''
     environment: release-signing
     strategy:
       fail-fast: false
@@ -123,7 +129,8 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   draft:
-    needs: signed-build
+    needs: [preflight, signed-build]
+    if: ${{ always() && needs.preflight.result == 'success' && (needs.signed-build.result == 'success' || inputs.reuse_run != '') }}
     runs-on: ubuntu-22.04
     environment: release-signing
     permissions:
@@ -135,8 +142,16 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "24.19.0"
+      - name: Verify reused signed run and identical application source
+        if: inputs.reuse_run != ''
+        run: node scripts/verify-release-reuse.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ATLAS_REUSE_RUN: ${{ inputs.reuse_run }}
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.reuse_run || github.run_id }}
           pattern: signed-*
           path: release
           merge-multiple: true
