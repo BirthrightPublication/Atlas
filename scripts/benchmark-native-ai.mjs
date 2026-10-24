@@ -25,9 +25,9 @@ const host = spawn(
   ["--dev", "--data-dir", dir, "--port", String(port)],
   { stdio: "ignore" },
 );
-const rpc = async (method, payload = {}) => {
+const rpc = async (method, payload = {}, timeout = 420000) => {
   const r = await fetch(`http://127.0.0.1:${port}/api/rpc`, {
-    signal: AbortSignal.timeout(420000),
+    signal: AbortSignal.timeout(timeout),
       method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ method, payload }),
@@ -68,6 +68,7 @@ try {
   report.status = "blocked";
   report.reason = String(e);
 } finally {
+  try { await rpc("ai.cancel", {}, 3000); await rpc("ai.install_cancel", {}, 3000); } catch { /* host may already be stopped */ }
   host.kill();
   await Promise.race([
     once(host, "exit"),

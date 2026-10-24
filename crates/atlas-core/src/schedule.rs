@@ -100,6 +100,10 @@ fn office_zone(settings: &Value) -> Result<Zone, String> {
         .map_err(|_| "Invalid office IANA timezone".into())
 }
 
+pub(crate) fn employer_label(instant: DateTime<Utc>, settings: &Value) -> Result<String, String> {
+    Ok(office_zone(settings)?.local(instant).to_rfc3339())
+}
+
 fn exception<'a>(settings: &'a Value, day: NaiveDate) -> Option<&'a Value> {
     settings["workExceptions"]
         .as_array()?

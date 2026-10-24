@@ -146,11 +146,6 @@ fn proposals(records: &[Value], settings: &Value, p: &Value) -> Result<Vec<Value
     let zone: chrono_tz::Tz = timezone
         .parse()
         .map_err(|_| "Choose a destination timezone")?;
-    let office: chrono_tz::Tz = settings["officeTimezone"]
-        .as_str()
-        .unwrap_or("America/Los_Angeles")
-        .parse()
-        .map_err(|_| "Invalid employer timezone")?;
     let mut items = vec![];
     for offset in 0..days {
         let day = (start + Duration::days(offset)).to_string();
@@ -216,7 +211,7 @@ fn proposals(records: &[Value], settings: &Value, p: &Value) -> Result<Vec<Value
         while cursor + Duration::minutes(90) <= end {
             let finish = cursor + Duration::minutes(90);
             if !busy.iter().any(|(a, b)| cursor < *b && finish > *a) {
-                items.push(json!({"id":id(),"state":"pending","record":{"kind":"objective","name":p["purpose"].as_str().unwrap_or("Explore destination — choose a saved attraction"),"category":"sightseeing","date":day,"startTime":cursor.with_timezone(&zone).format("%H:%M").to_string(),"endTime":finish.with_timezone(&zone).format("%H:%M").to_string(),"timezone":timezone,"status":"planned","context":"on_foot","notes":"Reviewed scheduling proposal; attraction availability, accessibility and travel time are unverified."},"localStart":cursor.with_timezone(&zone).to_rfc3339(),"localEnd":finish.with_timezone(&zone).to_rfc3339(),"officeStart":cursor.with_timezone(&office).to_rfc3339(),"officeEnd":finish.with_timezone(&office).to_rfc3339(),"work":w,"routeVerified":false}));
+                items.push(json!({"id":id(),"state":"pending","record":{"kind":"objective","name":p["purpose"].as_str().unwrap_or("Explore destination — choose a saved attraction"),"category":"sightseeing","date":day,"startTime":cursor.with_timezone(&zone).format("%H:%M").to_string(),"endTime":finish.with_timezone(&zone).format("%H:%M").to_string(),"timezone":timezone,"status":"planned","context":"on_foot","notes":"Reviewed scheduling proposal; attraction availability, accessibility and travel time are unverified."},"localStart":cursor.with_timezone(&zone).to_rfc3339(),"localEnd":finish.with_timezone(&zone).to_rfc3339(),"officeStart":schedule::employer_label(cursor,settings)?,"officeEnd":schedule::employer_label(finish,settings)?,"work":w,"routeVerified":false}));
                 break;
             }
             cursor += Duration::minutes(30);

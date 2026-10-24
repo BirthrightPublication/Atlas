@@ -138,3 +138,24 @@ fn model_catalog_pinned_and_download_not_started_without_approval() {
     assert!(model_store::query(&a, "ai.verify", &json!({"model":"../../secret"})).is_err());
     assert!(model_store::query(&a, "ai.enable", &json!({"model":"0.6b"})).is_err());
 }
+
+#[test]
+fn schedule_proposals_use_the_selected_fixed_employer_offset() {
+    let dir = tempdir().unwrap();
+    let mut app = Atlas::open(dir.path()).unwrap();
+    app.call(
+        "settings.save",
+        json!({"settings":{"officeTimezoneMode":"fixed","officeFixedOffsetMinutes":0}}),
+    )
+    .unwrap();
+    let proposal = app
+        .call(
+            "journeys.propose",
+            json!({"start":"2027-01-09","timezone":"Europe/Rome","days":1}),
+        )
+        .unwrap();
+    assert_eq!(
+        proposal["items"][0]["officeStart"],
+        "2027-01-09T07:00:00+00:00"
+    );
+}
