@@ -10,7 +10,8 @@ New Roman, falling back to Liberation Serif/Times when it is unavailable.
 See [v0.5 validation](VALIDATION-v0.5.md) for current evidence; the
 [v0.2](VALIDATION-v0.2.md) and [v0.1](VALIDATION.md) reports remain historical.
 The [v0.6 activation report](VALIDATION-v0.6.md) tracks the merged default-branch
-workflow and the remaining malformed owner public-key setting separately.
+workflow and the remaining signing-key password failure separately. The owner
+has corrected the public-key format; production signing is still blocked.
 
 | Area                        | Implemented behavior                                                                                                                       | Validation / limitation                                                                                                                |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |

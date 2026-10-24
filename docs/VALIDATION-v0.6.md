@@ -22,9 +22,16 @@ envelope. Both required secret values are present; their correctness/match has
 not been established. Their contents were never read through this workspace.
 The [later signing check](https://github.com/BirthrightPublication/Atlas/actions/runs/40072472572)
 at `c386f296a4d4c99e01032687b3d5cf22eb252664` reported the same malformed public
-setting and stopped before native builds. This is the last executed signing
-check; the owner is correcting the existing public variable.
-See [the exact owner correction](OWNER-UPDATE-SETUP.md#correct-the-current-public-key-setting).
+setting and stopped before native builds. These are historical attempts; the
+owner subsequently corrected the public-key format.
+
+The requested [rerun, attempt 2](https://github.com/BirthrightPublication/Atlas/actions/runs/40072472572/attempts/2)
+passed the public-key format check but could not sign with the stored private
+key/password. A [more precise diagnostic run](https://github.com/BirthrightPublication/Atlas/actions/runs/40072999050)
+at `50f792ba1225070fbf00b06f17e7f0d39900d014` confirmed the signing CLI rejects
+the stored password for that private key. Only a constant, redacted category
+was exposed; raw signing output and credentials were withheld. No installer or
+draft was created. See [the password correction](OWNER-UPDATE-SETUP.md#correct-the-signing-key-password).
 
 No stable or draft GitHub release exists. Consequently the public
 `https://github.com/BirthrightPublication/Atlas/releases/latest/download/latest.json`
@@ -41,6 +48,14 @@ output is withheld. Only the public key and its SHA-256 identity record become
 artifacts; they accompany the eventual draft so both release versions can be
 compared against the same identity. This check neither generates a permanent
 key nor publishes or installs an update.
+
+Private-key paths, malformed key contents and a password that does not unlock
+the key now receive separate actionable annotations. The expanded local security
+test passes these cases and checks that paths, private contents and passwords
+never enter diagnostic output. CLI messages are matched internally and are
+never forwarded to logs. The actual protected run established the current
+password failure; the correct secret value requires the owner's original
+password and cannot be repaired from this workspace.
 
 The new Windows helper reuses the owner's existing key, verifies the local
 pair, and optionally uploads secrets by standard input and the public variable
@@ -67,8 +82,9 @@ Application metadata intentionally remains 0.5.0 for the trusted bootstrap.
 No 0.6.0 installer has been built or published while signing is blocked. The
 application source is unchanged from the validated v0.5 candidate.
 
-1. Owner corrects the public environment variable using the existing `.pub`
-   file. No key rotation or private material in chat is needed.
+1. Owner corrects `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` in `release-signing` using
+   the original password for the retained private key. The public-key format is
+   corrected; the key pair's match still needs a successful signing proof.
 2. Rerun signing preflight and build the actual production-configured 0.5.0
    bootstrap. Verify signatures, checksums and its populated Windows upgrade.
 3. Build the newer 0.6.0 release with the same verified permanent identity and
@@ -82,6 +98,6 @@ application source is unchanged from the validated v0.5 candidate.
    platform, installation-failure, concurrent-update and backup-recovery results
    separately. Previous controlled checks do not establish published acceptance.
 
-**Production updater status: blocked on the malformed public setting and later
+**Production updater status: blocked on the signing-key password and later
 owner publication approval. Real in-app published-update acceptance is pending.**
 No new unsigned candidate is delivered as a solution to this blocker.

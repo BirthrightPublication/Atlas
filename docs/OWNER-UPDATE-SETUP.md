@@ -1,9 +1,10 @@
 # Activate Atlas updates once
 
 The owner has merged PR #5 into `main` and created `release-signing`. The signed
-workflow is available in Actions. The current signing preflight reports an
-invalid `ATLAS_UPDATE_PUBLIC_KEY` value; the private-key/password secrets are
-present but their match remains unverified until the public value is corrected.
+workflow is available in Actions. The public-key format has been corrected.
+The latest signing preflight reports that `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
+does not unlock the stored private key. The key pair remains unverified until
+the existing key's original password is configured correctly.
 No production installer or release has been created. See
 [v0.6 activation evidence](VALIDATION-v0.6.md).
 
@@ -13,7 +14,7 @@ later releases must use the same signing identity. Preserve the data directory;
 do not uninstall or delete it.
 
 **If you already generated the permanent key, skip step 1.** Keep that key and
-its password. Correct the public variable in step 2 or use the helper below.
+its password. Correct the password secret in step 2 or use the helper below.
 
 ## 1. Generate and retain the identity on your Windows computer
 
@@ -53,7 +54,23 @@ Enter values directly in GitHub's protected UI. Do not put the private file path
 in the secret: the remote runner needs the actual encrypted key contents.
 Updater signatures do not establish Windows Authenticode publisher signing.
 
-### Correct the current public-key setting
+### Correct the signing-key password
+
+Open **Settings → Environments → release-signing → Environment secrets →
+TAURI_SIGNING_PRIVATE_KEY_PASSWORD → Update**. Enter the original password you
+chose at the Tauri key-generation prompt, then save. This is the signing-key
+password, not your GitHub login password. Keep its exact case and characters.
+Do not add quotation marks, leading/trailing spaces or a newline.
+
+GitHub does not reveal existing secret values. This cloud workspace cannot
+retrieve or recover that password. Keep it out of chat; enter it directly in
+GitHub. The optional Windows helper below checks the existing local key and
+password before uploading, which also checks against incorrectly copied key
+contents. Do not generate or overwrite a permanent identity to bypass this
+check. If the password is lost, locate the original retained password/backup
+before proceeding. No signed installer can be produced until the key unlocks.
+
+### Public-key setting (format corrected)
 
 On your trusted Windows computer, the guide's default public-key file is
 `%LOCALAPPDATA%\AtlasReleaseKeys\atlas-updater.key.pub`. In PowerShell:
