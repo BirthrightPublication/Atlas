@@ -154,6 +154,16 @@ companion state survive. Record the actual result in `VALIDATION-v0.6.md`.
 This acceptance remains pending until performed against that published release.
 Do not publish a test-only version simply to imply success.
 
+After owner-approved integration of the acceptance workflow, **Actions → Verify
+published Update Now** can execute the isolated Windows test with bootstrap
+`v0.5.0` and target `0.6.0`. It refuses to install until the expected newer
+version is actually published and the real public manifest/assets verify with
+the same permanent identity. It clicks the installed application's normal
+button, checks the native restart and retained synthetic data, and uploads
+screenshots/progress/reports. This needs only the public key, not the signing
+secrets. It does not replace checking the owner machine after its one-time
+bootstrap installation.
+
 ## Recovery
 
 A failed transfer/signature check leaves the installed application and backup

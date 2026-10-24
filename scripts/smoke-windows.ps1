@@ -1,5 +1,5 @@
 # Requires a Windows GitHub Actions runner with Node 24 from actions/setup-node.
-# This tests the staged unsigned preview installer; it does not bypass signing,
+# This tests the exact staged preview or production installer; it does not bypass signing,
 # SmartScreen, WebView2, or Windows security checks. No developer server is used.
 # Windows execution is required: Linux syntax review is not installation evidence.
 [CmdletBinding()]
@@ -9,7 +9,11 @@ param(
     [string] $InstallerPath,
     [string] $PreviousInstallerPath,
     [string] $PreviousInstallerSha256,
-    [switch] $ControlledUpdate
+    [switch] $ControlledUpdate,
+    [ValidatePattern('^\d+\.\d+\.\d+$')]
+    [string] $InstallerVersion,
+    [ValidatePattern('^\d+\.\d+\.\d+$')]
+    [string] $PublishedUpdateVersion
 )
 
 Set-StrictMode -Version Latest
@@ -27,6 +31,17 @@ $config = Get-Content -LiteralPath (Join-Path $repository 'src-tauri/tauri.conf.
 $productName = [string] $config.productName
 $identifier = [string] $config.identifier
 $version = [string] $config.version
+if ($InstallerVersion) { $version = $InstallerVersion }
+if ($PublishedUpdateVersion -and $ControlledUpdate) { throw 'Published and disposable update acceptance cannot be combined.' }
+$publishedUpdateStarted = $false
+$publishedUpdateCompleted = $false
+$diagnosticPort = 0
+if ($PublishedUpdateVersion) {
+    $listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, 0)
+    $listener.Start()
+    $diagnosticPort = $listener.LocalEndpoint.Port
+    $listener.Stop()
+}
 $windowTitle = [string] $config.app.windows[0].title
 if ($productName -ne 'Birthright Atlas' -or $identifier -ne 'org.birthright.atlas') {
     throw 'The product identity changed. Review the installed binary, data-directory, and shortcut expectations before running this smoke test.'
@@ -112,6 +127,11 @@ function Start-InstalledAtlas([string] $LaunchLabel) {
     $start.UseShellExecute = $false
     $start.Environment['APPDATA'] = $isolatedRoaming
     $start.Environment['LOCALAPPDATA'] = $isolatedLocal
+    if ($PublishedUpdateVersion) {
+        # Diagnostic access exists only on the disposable runner's loopback.
+        # The installed binary, production endpoint and trust key are unchanged.
+        $start.Environment['WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS'] = "--remote-debugging-port=$diagnosticPort --remote-debugging-address=127.0.0.1"
+    }
     # Tauri also uses Windows known-folder APIs, which ignore these environment
     # overrides. The guarded per-application junctions isolate those paths too.
     $process = [Diagnostics.Process]::Start($start)
@@ -272,14 +292,55 @@ try {
         & (Join-Path $PSScriptRoot 'smoke-signed-update.ps1') -TestRoot $testRoot -InstallDirectory $installDirectory -DataDirectory $databaseDirectory
         $report.controlledSignedUpdate = 'passed'
     }
-    $report.status = 'passed' 
+    if ($PublishedUpdateVersion) {
+        $stage = 'Seed isolated production-update profile'
+        $productionSnapshot = Join-Path $testRoot 'production-before.json'
+        & node (Join-Path $repository 'scripts/check-upgrade.mjs') seed (Join-Path $installDirectory 'atlas-host.exe') $databaseDirectory $productionSnapshot
+        if ($LASTEXITCODE -ne 0) { throw 'Synthetic production update seeding failed.' }
+        $pairingPath = Join-Path $databaseDirectory 'companion-devices.json'
+        '{"devices":[{"id":"synthetic-production-device","name":"Synthetic iPhone","token_hash":"synthetic-nonfunctional-token-hash","paired_at":"2026-01-01T00:00:00Z","last_sync":null,"revoked":false,"receipts":{}}],"pairing":null,"failed_pair_attempts":0,"attempts_reset_at":null}' | Set-Content -LiteralPath $pairingPath -Encoding utf8NoBOM
+        $pairingHash = (Get-FileHash -LiteralPath $pairingPath -Algorithm SHA256).Hash
+        $backupsPath = Join-Path $databaseDirectory 'backups'
+        $backupsBefore = @(if (Test-Path -LiteralPath $backupsPath) { Get-ChildItem -LiteralPath $backupsPath -File | Select-Object -ExpandProperty Name })
+        $stage = 'Published Update Now in the actual installed native application'
+        $publishedUpdateStarted = $true
+        $productionLaunch = Start-InstalledAtlas 'Production bootstrap launch'
+        & node (Join-Path $repository 'scripts/production-update-ui.mjs') $diagnosticPort (Join-Path $installDirectory 'atlas-host.exe') $databaseDirectory $productionSnapshot $PublishedUpdateVersion
+        if ($LASTEXITCODE -ne 0) { throw 'The real native UI published-update acceptance failed.' }
+        $restarted = @(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -and [IO.Path]::GetFullPath($_.ExecutablePath) -ieq [IO.Path]::GetFullPath($installedExecutable) })
+        if ($restarted.Count -ne 1) { throw 'Expected exactly one restarted executable under the owned installation directory.' }
+        $newProcess = Get-Process -Id $restarted[0].ProcessId
+        $ownedProcesses.Add($newProcess)
+        Close-InstalledAtlas $newProcess 'Published update restart'
+        $actualVersion = [Diagnostics.FileVersionInfo]::GetVersionInfo($installedExecutable).ProductVersion
+        if ($actualVersion -ne $PublishedUpdateVersion -and $actualVersion -ne "$PublishedUpdateVersion.0") { throw 'The installed executable version differs from the published target.' }
+        & node (Join-Path $repository 'scripts/check-upgrade.mjs') verify (Join-Path $installDirectory 'atlas-host.exe') $databaseDirectory $productionSnapshot
+        if ($LASTEXITCODE -ne 0) { throw 'The published update changed retained data or accounting.' }
+        if ((Get-FileHash -LiteralPath $pairingPath -Algorithm SHA256).Hash -cne $pairingHash) { throw 'The published update changed synthetic companion metadata.' }
+        $newBackups = @(Get-ChildItem -LiteralPath $backupsPath -File | Where-Object { $_.Name -notin $backupsBefore -and $_.Length -gt 0 })
+        if ($newBackups.Count -eq 0) { throw 'The native updater did not retain a new nonempty backup before installation.' }
+        $productionReportPath = Join-Path $stagingDirectory 'production-update-smoke.json'
+        $productionReport = Get-Content -LiteralPath $productionReportPath -Raw | ConvertFrom-Json -AsHashtable
+        $productionReport.status = 'passed'
+        $productionReport.dataRetentionVerified = $true
+        $productionReport.syntheticPairingMetadataRetained = $true
+        $productionReport.modelCacheMarkerRetained = $true
+        $productionReport.preInstallBackupRetained = $true
+        $productionReport | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $productionReportPath -Encoding utf8NoBOM
+        $report.publishedUpdate = 'passed'
+        $report.installedVersion = $actualVersion
+        $publishedUpdateCompleted = $true
+    }
+    $report.status = 'passed'
 } catch {
     $report.status = 'failed'
     $report.failedStage = $stage
     $report.failure = $_.Exception.Message
     throw "Windows installed-app smoke test failed at '$stage': $($_.Exception.Message)"
 } finally {
-    $processCleanupComplete = $true
+    # If an installer/restart is unresolved, keep the owned junctions in place:
+    # a delayed child must never fall back to the real known-folder location.
+    $processCleanupComplete = -not ($publishedUpdateStarted -and -not $publishedUpdateCompleted)
     foreach ($process in $ownedProcesses) {
         try {
             $process.Refresh()

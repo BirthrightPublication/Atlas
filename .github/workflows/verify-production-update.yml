@@ -1,0 +1,56 @@
+name: Verify published Update Now
+
+on:
+  workflow_dispatch:
+    inputs:
+      bootstrap_tag:
+        description: Existing permanent-key bootstrap release tag (may remain draft)
+        required: true
+        default: v0.5.0
+        type: string
+      target_version:
+        description: Approved and published stable target version
+        required: true
+        default: 0.6.0
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  published-windows-update:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    environment: release-signing
+    env:
+      ATLAS_BOOTSTRAP_TAG: ${{ inputs.bootstrap_tag }}
+      ATLAS_EXPECTED_RELEASE_VERSION: ${{ inputs.target_version }}
+      ATLAS_UPDATE_PUBLIC_KEY: ${{ vars.ATLAS_UPDATE_PUBLIC_KEY }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24.19.0"
+      - run: npm ci
+      - name: Verify the real published feed and exact same-identity bootstrap
+        run: node scripts/prepare-production-acceptance.mjs
+      - name: Click Update Now in the real installed Atlas and verify retention
+        shell: pwsh
+        run: |
+          $baseVersion = $env:ATLAS_BOOTSTRAP_TAG.Substring(1)
+          $installer = Join-Path $PWD "release/windows-x86_64/Birthright-Atlas_${baseVersion}_windows_x86_64-setup.exe"
+          ./scripts/smoke-windows.ps1 -InstallerPath $installer -InstallerVersion $baseVersion -PublishedUpdateVersion $env:ATLAS_EXPECTED_RELEASE_VERSION
+      - name: Report actual synthetic acceptance evidence
+        if: always()
+        run: node scripts/report-validation.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: published-windows-update-evidence
+          path: |
+            release/windows-x86_64/*smoke.json
+            release/windows-x86_64/production-*.json
+            release/windows-x86_64/production-*.png
+          if-no-files-found: warn
+          retention-days: 14

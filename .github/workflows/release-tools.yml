@@ -6,6 +6,10 @@ on:
       - ".github/workflows/release*.yml"
       - "scripts/*release*"
       - "scripts/setup-release-signing.ps1"
+      - "scripts/prepare-production-acceptance.mjs"
+      - "scripts/production-update-ui.mjs"
+      - "scripts/smoke-windows.ps1"
+      - ".github/workflows/verify-production-update.yml"
   workflow_dispatch:
 
 permissions:
@@ -23,6 +27,11 @@ jobs:
       - run: npm ci
       - name: Verify signing diagnostics and credential redaction with synthetic keys
         run: node --test scripts/release-preflight.test.mjs
+      - name: Check production acceptance JavaScript
+        run: |
+          node --check scripts/prepare-production-acceptance.mjs
+          node --check scripts/production-update-ui.mjs
+          node --check scripts/verify-published-release.mjs
       - name: Parse owner helper and prove it refuses CI execution
         shell: pwsh
         run: |

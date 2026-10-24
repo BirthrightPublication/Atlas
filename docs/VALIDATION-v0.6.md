@@ -41,6 +41,16 @@ The production-configured 0.5.0 bootstrap is building from
 `50f792ba1225070fbf00b06f17e7f0d39900d014`. Private contents remain in protected
 GitHub Actions; no permanent key was generated or changed in this workspace.
 
+That run passed the production-signed Windows installation/retention check and
+Linux staging, but macOS updater archive staging failed. The signed Mac target
+now explicitly includes both `app` and `dmg`; a DMG-only selection did not
+produce the required updater archive. Corrected complete builds are running:
+[0.5.0 bootstrap](https://github.com/BirthrightPublication/Atlas/actions/runs/40074289786)
+at `f75bca66e2cf9d81747ffdf71b71249537671b4e` and
+[0.6.0 target](https://github.com/BirthrightPublication/Atlas/actions/runs/40074275220)
+at `6f5b8b0a6c98b8a405743de1429ade1c5cc32154`. No platform is silently omitted
+and no partial feed is published.
+
 No stable or draft GitHub release exists. Consequently the public
 `https://github.com/BirthrightPublication/Atlas/releases/latest/download/latest.json`
 endpoint cannot provide a production update yet. No preview artifact is
@@ -92,6 +102,20 @@ incompatible-platform, transfer, signature and installation diagnostics. Two
 native updater tests, all 146 workspace tests, the retained test-feature compile
 and the production frontend build passed locally. The
 ordinary planning/data services and schema remain unchanged.
+
+The manually dispatched [published acceptance workflow](../.github/workflows/verify-production-update.yml)
+is prepared for after approved integration/publication. It uses only the public
+key and read access: it verifies the actual public HTTPS feed, downloads the
+exact signed bootstrap, checks the same identity/checksum/signature and installs
+it in the existing guarded disposable Windows profile. Playwright connects to
+that installed WebView2 on loopback and clicks the normal **Update Now** button.
+No mock IPC, test update feature or direct `update_install` call is used. It
+captures actual native progress/screenshots, reconnects after restart, verifies
+the newer installed version and a successful no-new-update check, and compares
+the synthetic records, history, settings, documents, chats, notifications,
+accounting, model-cache marker and companion metadata. It also requires a new
+nonempty pre-install backup. This workflow has not run against a published
+release yet; preparation/syntax checks are not acceptance evidence.
 
 1. Signing configuration is verified; reuse this exact permanent identity for
    both versions and all subsequent releases.
