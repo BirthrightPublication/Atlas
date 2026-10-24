@@ -54,6 +54,7 @@ branch does not activate it. No branch is merged by this setup guide.
 After integration, open **Actions → Prepare signed draft release → Run workflow**.
 Select the reviewed release branch/commit and enter the release notes. The
 workflow checks environment configuration before building, verifies signatures,
+installs the actual signed Windows bootstrap over a populated v0.4 test profile,
 and creates a draft only after every platform artifact is present. It does not
 publish a stable release automatically.
 

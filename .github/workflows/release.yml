@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   preflight:
@@ -48,6 +49,8 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '24.19.0'
@@ -75,6 +78,21 @@ jobs:
         run: node scripts/stage-release.mjs ${{ matrix.target }} --signed
         env:
           ATLAS_UPDATE_PUBLIC_KEY: ${{ vars.ATLAS_UPDATE_PUBLIC_KEY }}
+      - name: Prepare verified v0.4 baseline for the production-key bootstrap
+        if: runner.os == 'Windows'
+        id: previous
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/prepare-windows-upgrade.ps1
+      - name: Install and validate the actual signed Windows bootstrap
+        if: runner.os == 'Windows'
+        shell: pwsh
+        timeout-minutes: 15
+        run: |
+          $config = Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
+          $installer = Join-Path $PWD "release/windows-x86_64/Birthright-Atlas_$($config.version)_windows_x86_64-setup.exe"
+          ./scripts/smoke-windows.ps1 -InstallerPath $installer -PreviousInstallerPath '${{ steps.previous.outputs.installer }}' -PreviousInstallerSha256 '${{ steps.previous.outputs.sha256 }}'
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: signed-${{ matrix.target }}
@@ -89,6 +107,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '24.19.0'
