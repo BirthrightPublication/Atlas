@@ -161,7 +161,15 @@ jobs:
         env:
           ATLAS_UPDATE_PUBLIC_KEY: ${{ vars.ATLAS_UPDATE_PUBLIC_KEY }}
           ATLAS_RELEASE_NOTES: ${{ inputs.notes }}
+      - name: Retain the complete verified signed payload for owner review
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: verified-signed-release
+          path: release/
+          if-no-files-found: error
+          retention-days: 14
       - name: Create draft only after every artifact passed
+        id: create_draft
         run: node scripts/create-draft-release.mjs
         env:
           GH_TOKEN: ${{ github.token }}
