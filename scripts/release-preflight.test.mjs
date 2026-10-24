@@ -93,12 +93,33 @@ test("preflight diagnoses configuration, verifies the existing identity and neve
       TAURI_SIGNING_PRIVATE_KEY: key.private,
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: "synthetic-test-password",
     };
+    const filePath = run({
+      ...values,
+      TAURI_SIGNING_PRIVATE_KEY: "C:\\private-example\\synthetic.key",
+    });
+    assert.equal(filePath.status, 1);
+    assert.match(filePath.stderr, /contains a file path/);
+    assert.ok(!filePath.stderr.includes("C:\\private-example"));
+    const malformedPrivate = run({
+      ...values,
+      TAURI_SIGNING_PRIVATE_KEY: "malformed-synthetic-secret-do-not-echo",
+    });
+    assert.equal(malformedPrivate.status, 1);
+    assert.match(
+      malformedPrivate.stderr,
+      /not valid Tauri private-key file contents/,
+    );
+    assert.ok(
+      !malformedPrivate.stderr.includes(
+        "malformed-synthetic-secret-do-not-echo",
+      ),
+    );
     const wrongPassword = run({
       ...values,
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: "wrong-test-password",
     });
     assert.equal(wrongPassword.status, 1);
-    assert.match(wrongPassword.stderr, /could not sign/);
+    assert.match(wrongPassword.stderr, /PASSWORD does not unlock/);
     const another = await generate("another-synthetic.key");
     const mismatch = run({
       ...values,
@@ -152,7 +173,13 @@ test("preflight diagnoses configuration, verifies the existing identity and neve
       !overlayText.includes(key.private.trim()),
       "Private key entered release config",
     );
-    for (const result of [wrongPassword, mismatch, valid]) {
+    for (const result of [
+      filePath,
+      malformedPrivate,
+      wrongPassword,
+      mismatch,
+      valid,
+    ]) {
       assert.ok(
         !`${result.stdout}${result.stderr}`.includes(key.private.trim()),
         "Private key leaked",

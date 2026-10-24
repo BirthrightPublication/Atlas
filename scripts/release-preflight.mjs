@@ -34,9 +34,16 @@ else if (
   failures.push(
     "ATLAS_UPDATE_PUBLIC_KEY is not a Tauri public key. Paste the full .pub file contents, without quotes or a file path, into the release-signing environment VARIABLE.",
   );
-if (!process.env.TAURI_SIGNING_PRIVATE_KEY?.trim())
+const privateKey = process.env.TAURI_SIGNING_PRIVATE_KEY?.trim();
+if (!privateKey)
   failures.push(
     "Missing environment SECRET TAURI_SIGNING_PRIVATE_KEY. Add the full existing private .key file contents directly in GitHub release-signing; never paste it into chat or generate a replacement identity in CI.",
+  );
+else if (
+  /^(?:[A-Za-z]:[\\/]|[\\/]|~[\\/]|%[A-Za-z_]+%|\$env:)/i.test(privateKey)
+)
+  failures.push(
+    "TAURI_SIGNING_PRIVATE_KEY contains a file path. GitHub's remote runner needs the entire existing private .key file contents in that environment SECRET, not its Windows location. Copy it directly to GitHub; never paste it into chat or generate a replacement key.",
   );
 if (!process.env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD)
   failures.push(
@@ -97,11 +104,31 @@ if (failures.length) {
           stdio: ["ignore", "pipe", "pipe"],
         },
       );
-      if (result.status !== 0)
-        failures.push(
-          "The existing private key could not sign with its configured password. Check that TAURI_SIGNING_PRIVATE_KEY contains the entire encrypted .key file (not a path) and its password is correct. Keep this identity; do not rotate it. Signing output was withheld to protect credentials.",
-        );
-      else {
+      if (result.status !== 0) {
+        // Match known CLI diagnostics internally; expose only constant text.
+        // Never forward stderr, which could contain supplied secret values.
+        const diagnostic = result.stderr || "";
+        if (
+          /incorrect updater private key password|Wrong password for that key/i.test(
+            diagnostic,
+          )
+        )
+          failures.push(
+            "TAURI_SIGNING_PRIVATE_KEY_PASSWORD does not unlock the stored private key. In release-signing, update that environment SECRET to the original password chosen for this existing .key file. If the key contents were copied incorrectly, re-copy the original file directly into its GitHub secret. Do not generate a replacement identity or send credentials to chat.",
+          );
+        else if (
+          /failed to decode (?:base64 )?secret key|failed to decode base64 key/i.test(
+            diagnostic,
+          )
+        )
+          failures.push(
+            "TAURI_SIGNING_PRIVATE_KEY is not valid Tauri private-key file contents. Replace that environment SECRET with the entire original .key file text, without quotes or a file path. Keep the same permanent identity and copy it directly into GitHub, never into chat.",
+          );
+        else
+          failures.push(
+            "The existing private key could not sign with its configured password. Check the full private .key contents and its original password using scripts/setup-release-signing.ps1 on your trusted Windows computer. Keep this identity; do not rotate it. Signing output was withheld to protect credentials.",
+          );
+      } else {
         try {
           verifyUpdate(
             await readFile(probe),
