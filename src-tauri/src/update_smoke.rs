@@ -30,7 +30,13 @@ fn test_case() -> Option<String> {
         .filter(|case| {
             matches!(
                 case.as_str(),
-                "older" | "wrong-platform" | "bad-signature" | "interrupted" | "valid"
+                "older"
+                    | "wrong-platform"
+                    | "bad-signature"
+                    | "interrupted"
+                    | "malformed"
+                    | "missing-release"
+                    | "valid"
             )
         })
 }
@@ -83,7 +89,7 @@ pub fn start(app: tauri::AppHandle) {
 async fn run(app: &tauri::AppHandle, case: &str) -> Result<(), String> {
     let root = root(app)?;
     // The actual newly installed executable writes this marker after its restart.
-    if app.package_info().version.to_string() == "0.4.1-update-test.1" {
+    if app.package_info().version.to_string() == "0.5.1-update-test.1" {
         if case != "valid" {
             return Err("Unexpected restart into target test version".into());
         }
@@ -99,7 +105,7 @@ async fn run(app: &tauri::AppHandle, case: &str) -> Result<(), String> {
         }
         std::fs::write(
             root.join("controlled-update-restarted.json"),
-            json!({"version":"0.4.1-update-test.1","nativeRestart":true}).to_string(),
+            json!({"version":"0.5.1-update-test.1","nativeRestart":true}).to_string(),
         )
         .map_err(|_| "Could not record native restart")?;
         return Ok(());
@@ -107,6 +113,13 @@ async fn run(app: &tauri::AppHandle, case: &str) -> Result<(), String> {
     tokio::time::sleep(std::time::Duration::from_secs(2)).await;
     let state = app.state::<crate::updates::UpdateState>();
     let check = crate::updates::check(app, &state).await;
+    if ["malformed", "missing-release"].contains(&case) {
+        return if check.is_err() {
+            Ok(())
+        } else {
+            Err("An unavailable or malformed feed was accepted".into())
+        };
+    }
     if case == "wrong-platform" {
         return if check.as_ref().err().is_some_and(|e| {
             e.to_lowercase().contains("target") || e.to_lowercase().contains("platform")

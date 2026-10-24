@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Download, RefreshCw } from "lucide-react";
-import { isDesktop, rpc } from "./api";
+import { isDesktop, rpc, openExternal } from "./api";
 import { APP_VERSION } from "./version";
 
 export function UpdatesPanel({
@@ -39,6 +39,14 @@ export function UpdatesPanel({
       onStatus(result);
     } catch (e) {
       setError(String(e));
+      setStatus((old: any) => ({
+        currentVersion: old?.currentVersion || APP_VERSION,
+        available: false,
+        state: navigator.onLine ? "feed_unavailable" : "offline",
+        reason: navigator.onLine
+          ? "The signed update feed could not be checked. Try again when it is available."
+          : "You are offline. Reconnect to check for updates.",
+      }));
     } finally {
       setChecking(false);
     }
@@ -117,11 +125,31 @@ export function UpdatesPanel({
         <p className="info-note">
           {checking
             ? "Checking for updates…"
-            : status?.configured
-              ? "Atlas is up to date on this build’s signed update feed."
-              : status?.reason || "Checking update configuration…"}
+            : status?.reason
+              ? status.reason
+              : status?.configured
+                ? "Atlas is up to date on this build’s signed update feed."
+                : status?.reason || "Checking update configuration…"}
         </p>
       )}
+      {!status?.configured &&
+        history?.releases?.some((r: any) => r.channel === "stable") && (
+          <section className="info-note">
+            <p>
+              This preview needs the trusted bootstrap installer once.
+              Subsequent releases can use Update Now.
+            </p>
+            <button
+              onClick={() =>
+                openExternal(
+                  "https://github.com/BirthrightPublication/Atlas/releases/latest",
+                )
+              }
+            >
+              Open official release page
+            </button>
+          </section>
+        )}
       {phase && (
         <div role="status">
           <p>
@@ -135,6 +163,15 @@ export function UpdatesPanel({
               {progress.total
                 ? ` of ${progress.total.toLocaleString()}`
                 : " downloaded"}
+            </p>
+          )}
+          {progress?.total > 0 && phase === "Downloading" && (
+            <p className="numeric">
+              {Math.min(
+                100,
+                Math.floor((100 * progress.downloaded) / progress.total),
+              )}
+              %
             </p>
           )}
           {progress?.total > 0 && phase === "Downloading" && (

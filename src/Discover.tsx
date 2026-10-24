@@ -1,3 +1,4 @@
+import { JourneyPlanner } from "./JourneyPlanner";
 import { useState } from "react";
 import {
   ArrowUpRight,
@@ -537,10 +538,12 @@ export function MapView({
   records,
   onSelect,
   onCreate,
+  onRefresh,
 }: {
   records: AtlasRecord[];
   onSelect: (r: AtlasRecord) => void;
   onCreate: (kind: string) => void;
+  onRefresh: () => Promise<void>;
 }) {
   const places = records.filter(
     (r) =>
@@ -556,6 +559,11 @@ export function MapView({
           for live routes.
         </p>
       </div>
+      <JourneyPlanner
+        records={records}
+        onRefresh={onRefresh}
+        onSelect={onSelect}
+      />
       <div className="map-layout">
         <div className="map-illustration">
           <div className="map-grid" />

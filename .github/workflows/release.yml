@@ -12,7 +12,22 @@ permissions:
   contents: read
 
 jobs:
+  preflight:
+    runs-on: ubuntu-22.04
+    environment: release-signing
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24.19.0'
+      - name: Check owner signing configuration before native builds
+        run: node scripts/release-preflight.mjs
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          ATLAS_UPDATE_PUBLIC_KEY: ${{ vars.ATLAS_UPDATE_PUBLIC_KEY }}
   signed-build:
+    needs: preflight
     environment: release-signing
     strategy:
       fail-fast: false

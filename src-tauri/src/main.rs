@@ -45,6 +45,12 @@ async fn atlas_call(
     let atlas = state.0.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let payload = payload.unwrap_or_else(|| json!({}));
+        if method.starts_with("ai.") && method != "ai.status" && method != "ai.extract" {
+            return atlas_core::model_store::query(&atlas, &method, &payload);
+        }
+        if method == "chat.local" {
+            return atlas_core::model_store::chat(&atlas, &payload);
+        }
         if ["imports.parse", "imports.ai"].contains(&method.as_str()) {
             return atlas_core::imports::query(&atlas, &method, &payload);
         }

@@ -1,0 +1,7 @@
+{
+  "model": "0.6b",
+  "nativeInstaller": true,
+  "syntheticOnly": true,
+  "status": "blocked",
+  "reason": "Error: Pinned download unavailable. Check connection and retry; no unverified file was installed."
+}

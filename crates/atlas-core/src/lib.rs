@@ -3,8 +3,10 @@ pub mod ai;
 mod automation;
 pub mod email;
 pub mod imports;
+mod itinerary;
 pub mod journey;
 pub mod mailbox;
+pub mod model_store;
 pub mod money;
 mod panels;
 pub mod planning;
@@ -43,6 +45,8 @@ const KINDS: &[&str] = &[
     "draft",
     "connection",
     "refund",
+    "proposal",
+    "routeDraft",
 ];
 
 pub struct Atlas {
@@ -135,6 +139,10 @@ impl Atlas {
             return Err("Request exceeds the local service size limit.".into());
         }
         match method {
+            "journeys.preview" | "journeys.save" | "journeys.propose" | "journeys.accept"
+            | "journeys.reject" | "journeys.offline" | "routes.draft" => {
+                self.itinerary(method, &payload)
+            }
             "snapshot" => Ok(json!({"records": self.records(None)?, "settings": self.settings()?})),
             "records.list" => Ok(json!(
                 self.records(payload.get("kind").and_then(Value::as_str))?
@@ -502,6 +510,9 @@ impl Atlas {
                     return Err(format!("{key} must reference a {expected_kind}"));
                 }
             }
+        }
+        if kind == "trip" && r.get("stops").is_some() {
+            itinerary::validate_stops(&r["stops"])?;
         }
         match kind.as_str() {
             "stay" => {

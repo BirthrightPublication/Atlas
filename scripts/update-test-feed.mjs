@@ -105,6 +105,16 @@ if (mode === "setup") {
         }
         const scenario = (await readFile(file("mode.txt"), "utf8")).trim();
         if (req.url === "/latest.json") {
+          if (scenario === "missing-release") {
+            res.writeHead(404);
+            res.end("No published release");
+            return;
+          }
+          if (scenario === "malformed") {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end('{"version":');
+            return;
+          }
           const signature = (
             await readFile(file("update.exe.sig"), "utf8")
           ).trim();

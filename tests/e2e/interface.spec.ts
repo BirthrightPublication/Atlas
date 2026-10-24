@@ -205,7 +205,7 @@ test("Settings save/discard navigation preserves records and concurrent settings
     await expect(page.getByRole("tabpanel")).toBeVisible();
   }
   await expect(
-    page.getByText("Version 0.4.0 · Development preview", { exact: true }),
+    page.getByText("Version 0.5.0 · Development preview", { exact: true }),
   ).toBeVisible();
 });
 

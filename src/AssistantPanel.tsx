@@ -62,6 +62,7 @@ export function AssistantPanel({
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [engine, setEngine] = useState("planner");
   const [ai, setAi] = useState<any>(null);
   const [allHistory, setAllHistory] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -110,12 +111,15 @@ export function AssistantPanel({
       }
       if (pending.current?.text !== text)
         pending.current = { text, id: crypto.randomUUID() };
-      const next = await rpc("chat.send", {
-        id: chat.id,
-        text,
-        requestId: pending.current.id,
-        context: { ...context, module },
-      });
+      const next = await rpc(
+        engine === "local_ai" ? "chat.local" : "chat.send",
+        {
+          id: chat.id,
+          text,
+          requestId: pending.current.id,
+          context: { ...context, module },
+        },
+      );
       setSession(next);
       setInput("");
       pending.current = null;
@@ -139,9 +143,22 @@ export function AssistantPanel({
   }
   return (
     <div className="chat-layout">
+      <label className="field">
+        Assistant mode
+        <select
+          value={engine}
+          onChange={(e) => setEngine(e.target.value)}
+          disabled={busy}
+        >
+          <option value="planner">Atlas Planner</option>
+          <option value="local_ai" disabled={!ai?.available}>
+            Local AI
+          </option>
+        </select>
+      </label>
       <div className="panel-toolbar">
         <small className="muted">
-          Local deterministic planner ·{" "}
+          Atlas Planner ·{" "}
           {ai?.available
             ? "optional extraction runtime available"
             : "AI inference unavailable"}

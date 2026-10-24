@@ -181,6 +181,19 @@ impl Atlas {
             .unwrap_or_else(|| Utc::now().format("%Y-%m-%d").to_string());
         crate::parse_date(&date)?;
         let month = context["month"].as_str().unwrap_or(&date[..7]);
+        if q.contains("journey")
+            || q.contains("two weeks")
+            || q.contains("day-by-day")
+            || q.contains("tentative travel plan")
+        {
+            let drafts: Vec<_> = records
+                .iter()
+                .filter(|r| text(r, "kind") == "trip" && r.get("stops").is_some())
+                .collect();
+            return Ok(
+                json!({"message":format!("{} saved tentative journey(s). Open Journey planning in Map to arrange stops, compare date-specific known costs and generate schedule proposals around protected work. Each objective requires review; confirmed bookings, prices and route facts are not invented.",drafts.len()),"journeys":drafts,"targets":[{"label":"Review journey plans and schedule proposals","target":{"module":"Map"}}]}),
+            );
+        }
         if q.contains("prepared")
             || q.contains("readiness")
             || q.contains("before departure")
@@ -659,5 +672,39 @@ impl Atlas {
             )
             .map_err(error)?;
         Ok(json!({"items":items,"unread":unread}))
+    }
+}
+
+impl Atlas {
+    pub(crate) fn save_local_chat(
+        &mut self,
+        p: &Value,
+        explanation: &Value,
+        planner: &Value,
+    ) -> Result<Value, String> {
+        let cid = text(p, "id");
+        let request = text(p, "requestId");
+        if request.is_empty() || request.len() > 80 || text(p, "text").len() > 8000 {
+            return Err("A bounded message and request ID are required".into());
+        }
+        let _ = self.chat("chat.get", p)?;
+        let exists:bool=self.db.query_row("SELECT EXISTS(SELECT 1 FROM chat_messages WHERE conversation_id=? AND request_id=?)",params![cid,request],|r|r.get(0)).map_err(error)?;
+        if exists {
+            return self.chat("chat.get", p);
+        }
+        let timestamp = now();
+        let mut result = explanation.clone();
+        result["planner"] = planner.clone();
+        result["targets"] = planner["targets"].clone();
+        result["records"] = planner["records"].clone();
+        let user = json!({"id":id(),"role":"user","text":p["text"],"context":p["context"],"createdAt":timestamp});
+        let answer = json!({"id":id(),"role":"assistant","text":explanation["message"],"result":result,"createdAt":timestamp,"engine":"local_ai"});
+        let tx = self.db.transaction().map_err(error)?;
+        for (role, body) in [("user", user), ("assistant", answer)] {
+            tx.execute("INSERT INTO chat_messages(conversation_id,request_id,role,body,created_at) VALUES(?,?,?,?,?)",params![cid,request,role,body.to_string(),timestamp]).map_err(error)?;
+        }
+        tx.execute("UPDATE conversations SET updated_at=?, title=CASE WHEN title='New conversation' THEN ? ELSE title END WHERE id=?",params![timestamp,text(p,"text").chars().take(72).collect::<String>(),cid]).map_err(error)?;
+        tx.commit().map_err(error)?;
+        self.chat("chat.get", p)
     }
 }

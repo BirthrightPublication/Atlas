@@ -1,3 +1,28 @@
+# Native Local AI in v0.5
+
+Open **Settings → Local AI**. Select an official pinned 0.6B or 1.7B model,
+review model/runtime sizes and license/resource guidance, then explicitly approve
+the download. Native Rust downloads and verifies both artifacts, supports cancel
+and safe restart after interruption, and stores them under `local-ai` in the OS
+user-data directory. Installed Atlas does not need Python. Verify the model,
+enable it and use **Test model** for an actual measured local response. A checksum
+configuration alone is not a successful inference benchmark.
+
+Verification derives installed runtime bytes from the pinned upstream archive;
+editable cache inventory cannot replace catalog hashes. Changing model files is
+serialized against inference. Threads (1–4), context (1024–8192), output cap
+(64–1024) and idle shutdown (30–600 seconds) are bounded. Only one inference job
+runs at a time. Disabling/stopping AI leaves ordinary planning available.
+
+The Assistant offers **Atlas Planner** and **Local AI**. AI explanations use
+saved planner results, run through the authenticated loopback runtime and have
+no command/file/network tools or database-write authority. Proposed schedules
+are reviewed separately in Map. Exact money/time calculations remain in Rust.
+
+The cloud native download attempt remains blocked; see [v0.5 validation](VALIDATION-v0.5.md)
+for actual local and Windows evaluation outcomes. The catalog provenance below
+is retained. The Python helper remains optional for developers.
+
 # Optional local inference
 
 Atlas runs without a model. Ordinary parsers, calendar records, financial

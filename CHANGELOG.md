@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.0 — trusted update transition and reviewed journeys
+
+- Prepare owner-controlled signing and default-branch integration; check release
+  prerequisites early and preserve signature/HTTPS enforcement.
+- Distinguish unavailable update checks from up-to-date status and show real progress.
+- Add native pinned model installation, verification, cancellation and bounded settings.
+- Add Local AI explanation mode alongside the persistent deterministic Planner.
+- Add tentative multi-stop journeys, route evidence, reviewed scheduling proposals
+  and selected offline trip information, without moving confirmed bookings.
+- Preserve schema 5, data identity, chats, notifications and model caches.
+- Production published-release acceptance remains pending owner activation.
+
 ## 0.4.0 — booking automation and travel readiness
 
 - Add account-scoped read-only mailbox connections, guided setup, header filters,

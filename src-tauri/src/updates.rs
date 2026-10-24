@@ -61,7 +61,7 @@ pub async fn check(app: &tauri::AppHandle, state: &UpdateState) -> Result<Value,
     let current = app.package_info().version.to_string();
     if cfg!(target_os = "linux") && std::env::var_os("APPIMAGE").is_none() {
         return Ok(
-            json!({"configured":false,"available":false,"currentVersion":current,"reason":"Automatic Linux updates require the AppImage edition. Install a verified Debian package manually."}),
+            json!({"state":"unconfigured","configured":false,"available":false,"currentVersion":current,"reason":"Automatic Linux updates require the AppImage edition. Install a verified Debian package manually."}),
         );
     }
     let (Some(key), Some(endpoint)) = (
@@ -69,7 +69,7 @@ pub async fn check(app: &tauri::AppHandle, state: &UpdateState) -> Result<Value,
         option_env!("ATLAS_UPDATE_ENDPOINT"),
     ) else {
         return Ok(
-            json!({"configured":false,"available":false,"currentVersion":current,"reason":"This preview has no production signing identity or trusted update feed. Install a verified release manually. A properly signed build can update subsequent releases with Update Now."}),
+            json!({"state":"unconfigured","configured":false,"available":false,"currentVersion":current,"reason":"This preview has no production signing identity or trusted update feed. Install a verified release manually. A properly signed build can update subsequent releases with Update Now."}),
         );
     };
     let endpoint = url::Url::parse(endpoint).map_err(|_| "Invalid compiled update endpoint")?;
@@ -99,6 +99,7 @@ pub async fn check(app: &tauri::AppHandle, state: &UpdateState) -> Result<Value,
             // The Windows installer exits without the ordinary Tauri exit event.
             // Release the packaged sidecar before NSIS replaces its executable.
             atlas_core::ai::cancel();
+            atlas_core::model_store::cancel_download();
             if let Ok(mut companion) = exiting_app.state::<crate::CompanionState>().0.lock() {
                 companion.stop();
             }
@@ -128,7 +129,9 @@ pub async fn check(app: &tauri::AppHandle, state: &UpdateState) -> Result<Value,
         let newer = semver::Version::parse(&u.version).map_err(|_| "Invalid release version")?
             > semver::Version::parse(&current).map_err(|_| "Invalid installed version")?;
         if !newer {
-            return Ok(json!({"configured":true,"available":false,"currentVersion":current}));
+            return Ok(
+                json!({"state":"up_to_date","configured":true,"available":false,"currentVersion":current}),
+            );
         }
     }
     let response = match &update {
@@ -143,9 +146,11 @@ pub async fn check(app: &tauri::AppHandle, state: &UpdateState) -> Result<Value,
             })
             .await
             .map_err(|_| "Notification worker interrupted")??;
-            json!({"configured":true,"available":true,"currentVersion":current,"version":u.version,"notes":u.body,"date":u.raw_json["pub_date"],"target":target})
+            json!({"state":"update_available","configured":true,"available":true,"currentVersion":current,"version":u.version,"notes":u.body,"date":u.raw_json["pub_date"],"target":target})
         }
-        None => json!({"configured":true,"available":false,"currentVersion":current}),
+        None => {
+            json!({"state":"up_to_date","configured":true,"available":false,"currentVersion":current})
+        }
     };
     *state.candidate.lock().map_err(|_| "Updater unavailable")? = update;
     Ok(response)

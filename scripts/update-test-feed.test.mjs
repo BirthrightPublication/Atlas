@@ -111,6 +111,13 @@ test(
         else assert.deepEqual(downloaded, artifact);
       }
     }
+    for (const scenario of ["malformed", "missing-release"]) {
+      await writeFile(path.join(directory, "mode.txt"), scenario);
+      const response = await get(feed.endpoint);
+      if (scenario === "missing-release") assert.equal(response.status, 404);
+      else assert.throws(() => JSON.parse(response.bytes));
+    }
+    await writeFile(path.join(directory, "mode.txt"), "valid");
     await writeFile(
       path.join(directory, "update-version.txt"),
       "9.8.7-update-test.2",

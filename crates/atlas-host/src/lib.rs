@@ -710,6 +710,26 @@ async fn rpc(
     let receipt_id = request.request_id.clone();
     let method = request.method.clone();
     let result = tokio::task::spawn_blocking(move || {
+        if dev
+            && request.method.starts_with("ai.")
+            && request.method != "ai.status"
+            && request.method != "ai.extract"
+        {
+            return atlas_core::model_store::query(&core, &request.method, &request.payload);
+        }
+        if dev && request.method == "ai.extract" {
+            let settings = core
+                .lock()
+                .map_err(|_| "Service unavailable")?
+                .call("settings.get", json!({}))?;
+            return atlas_core::ai::extract(
+                request.payload["text"].as_str().unwrap_or(""),
+                &settings,
+            );
+        }
+        if dev && request.method == "chat.local" {
+            return atlas_core::model_store::chat(&core, &request.payload);
+        }
         if dev && ["imports.parse", "imports.ai"].contains(&request.method.as_str()) {
             return atlas_core::imports::query(&core, &request.method, &request.payload);
         }

@@ -283,3 +283,13 @@ input[inputmode="decimal"] {
 .chat-messages {
   max-height: none;
 }
+
+/* Reviewed journey/model actions share the existing charcoal controls. */
+.button-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.planning-summary .panel-stack { min-width: 0; }
+.planning-summary .panel-card p { overflow-wrap: anywhere; }
+
+.journey-workspace { max-width: 1200px; margin: 0 auto; }
+.journey-workspace .info-note, .model-manager .info-note { display: block; }
+.journey-workspace .info-note p, .model-manager .info-note p { margin: 8px 0; }
+.model-manager small { overflow-wrap: anywhere; }

@@ -65,14 +65,18 @@ jobs:
       - name: Stage exact artifacts
         id: stage
         run: node scripts/stage-release.mjs ${{ matrix.target }}
-      - name: Prepare verified v0.3 installer for upgrade validation
+      - name: Evaluate optional native Local AI with explicitly approved synthetic download
+        if: runner.os == 'Windows'
+        timeout-minutes: 12
+        run: node scripts/benchmark-native-ai.mjs --approve-model-download --host=target/x86_64-pc-windows-msvc/release/atlas-host.exe
+      - name: Prepare verified v0.4 installer for upgrade validation
         if: runner.os == 'Windows'
         id: previous
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: ./scripts/prepare-windows-upgrade.ps1
-      - name: Verify Windows installation and v0.3 manual upgrade
+      - name: Verify Windows installation and v0.4 manual upgrade
         if: runner.os == 'Windows'
         shell: pwsh
         timeout-minutes: 45

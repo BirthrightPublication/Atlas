@@ -828,6 +828,7 @@ function DesktopApp() {
               )}
               {tab === "Map" && (
                 <MapView
+                  onRefresh={refresh}
                   records={records}
                   onCreate={create}
                   onSelect={select}

@@ -3,11 +3,11 @@
 This document distinguishes source implementation from runtime and release
 validation. Checks used the Linux cloud workspace and native CI runners.
 
-Version 0.4.0 preserves the approved neutral theme, bottom dock, full-page
+Version 0.5.0 preserves the approved neutral theme, bottom dock, full-page
 Settings and shared nonmodal utility panel. Assistant chats and actionable
 notification state persist in schema 5. Numbers use local Times
 New Roman, falling back to Liberation Serif/Times when it is unavailable.
-See [v0.4 validation](VALIDATION-v0.4.md) for current evidence; the
+See [v0.5 validation](VALIDATION-v0.5.md) for current evidence; the
 [v0.2](VALIDATION-v0.2.md) and [v0.1](VALIDATION.md) reports remain historical.
 
 | Area                        | Implemented behavior                                                                                                                       | Validation / limitation                                                                                                                  |
@@ -110,3 +110,19 @@ accounting services without saving bookings or payments. Prepared searches open
 Airbnb, Booking.com and Rome2Rio; the broader provider directory remains. Manual
 watchlist snapshots and recheck reminders do not represent automated price feeds.
 Optional AI remains independent and model inference remains unverified.
+
+## Version 0.5 evidence boundaries
+
+Native Rust model installation and explicit downloads replace the developer
+Python requirement for installed Atlas. Catalog, approval, extraction and forged
+inventory checks pass; actual inference is reported separately. Local AI only
+explains authorized planner results. The Planner and Local AI modes retain chats.
+Tentative multi-stop journeys, route drafts, individually reviewed schedules and
+selected offline trip packages use real persistence/calculation services. The
+companion Trip view reads synchronized records and chosen documents offline.
+
+Production updating is not yet activated: owner-controlled keys, approved default
+branch integration, a signed bootstrap and approved stable publication are
+required. See [owner setup](OWNER-UPDATE-SETUP.md) and [explicit completion
+categories](VALIDATION-v0.5.md). Historical v0.4 native validation remains valid
+for that version and is not substituted for v0.5 or production acceptance.

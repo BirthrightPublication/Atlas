@@ -21,6 +21,7 @@ import { MoneyField } from "./RecordForm";
 
 import { EmailSettings } from "./EmailSettings";
 import { APP_VERSION } from "./version";
+import { ModelManager } from "./ModelManager";
 import { AiSettings, PhoneSettings } from "./Integrations";
 
 export type SettingsActions = {
@@ -36,6 +37,7 @@ const CATEGORIES = [
   "Budget Defaults",
   "Notifications",
   "Email & Integrations",
+  "Local AI",
   "Privacy & Data",
   "Application Updates",
   "About Atlas",
@@ -703,6 +705,12 @@ export function SettingsPanel({
               <summary>Phone companion</summary>
               <PhoneSettings />
             </details>
+          </>
+        )}
+        {tab === "Local AI" && (
+          <>
+            <ModelManager settings={settings} onRefresh={onRefresh} />
+            <AiSettings settings={settings} onRefresh={onRefresh} />
           </>
         )}
         {tab === "Privacy & Data" && (

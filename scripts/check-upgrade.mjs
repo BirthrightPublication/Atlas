@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { once } from "node:events";
-import { readFile, writeFile, readdir } from "node:fs/promises";
+import { readFile, writeFile, readdir, mkdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
@@ -112,6 +112,43 @@ try {
         status: "planned",
       },
     });
+    await rpc("records.save", {
+      record: {
+        kind: "transport",
+        name: "Synthetic upgrade train",
+        departure: "2026-12-12T08:00:00Z",
+        arrival: "2026-12-12T10:00:00Z",
+        departureTimezone: "Europe/Lisbon",
+        arrivalTimezone: "Europe/Lisbon",
+        currency: "USD",
+        totalMinor: 0,
+        status: "confirmed",
+      },
+    });
+    await rpc("records.save", {
+      record: {
+        kind: "budget",
+        name: "Synthetic upgrade budget",
+        month: "2026-12",
+        currency: "USD",
+        incomeMinor: 200000,
+        reserveMinor: 10000,
+        allowanceMinor: 50000,
+      },
+    });
+    await rpc("records.save", {
+      record: {
+        kind: "reminder",
+        name: "Synthetic upgrade reminder",
+        dueAt: "2026-12-11T10:00:00Z",
+        status: "pending",
+      },
+    });
+    await mkdir(path.join(dataDir, "local-ai"), { recursive: true });
+    await writeFile(
+      path.join(dataDir, "local-ai", "upgrade-preservation-sentinel.txt"),
+      "Synthetic cache marker; not a model or inference evidence.",
+    );
     await rpc("settings.save", {
       settings: {
         currency: "USD",
@@ -189,6 +226,13 @@ try {
     histories,
     documents,
     schema,
+    preservedModelCache: createHash("sha256")
+      .update(
+        await readFile(
+          path.join(dataDir, "local-ai", "upgrade-preservation-sentinel.txt"),
+        ),
+      )
+      .digest("hex"),
     accounting: [
       december.accommodationMinor,
       january.accommodationMinor,
@@ -212,7 +256,9 @@ try {
     if ([3, 4].includes(baseline.schema) && schema === 5) {
       const backups = await readdir(path.join(dataDir, "backups"));
       assert.ok(
-        backups.some((name) => name.startsWith(`pre-migration-v${baseline.schema}-`)),
+        backups.some((name) =>
+          name.startsWith(`pre-migration-v${baseline.schema}-`),
+        ),
         "Schema upgrade requires a retained pre-migration backup",
       );
       baseline.schema = 5;
