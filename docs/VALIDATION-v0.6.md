@@ -37,7 +37,7 @@ After the owner corrected the password, [attempt 2 of the diagnostic run](https:
 passed preflight using the existing permanent identity. A real version-bound
 signature verified successfully. The public-key packet SHA-256 is
 `667267e572c171192ff432236e4db84f70e60d5348f8dbe81de8a9ec875c43ea`.
-The production-configured 0.5.0 bootstrap is building from
+The first production-configured 0.5.0 build used
 `50f792ba1225070fbf00b06f17e7f0d39900d014`. Private contents remain in protected
 GitHub Actions; no permanent key was generated or changed in this workspace.
 
@@ -105,8 +105,8 @@ ordinary planning/data services and schema remain unchanged.
 
 The manually dispatched [published acceptance workflow](../.github/workflows/verify-production-update.yml)
 is prepared for after approved integration/publication. It uses only the public
-key and read access: it verifies the actual public HTTPS feed, downloads the
-exact signed bootstrap, checks the same identity/checksum/signature and installs
+key and read access: it requires both approved versions to be published, verifies the
+actual public HTTPS feed, downloads the exact signed bootstrap, checks the same identity/checksum/signature and installs
 it in the existing guarded disposable Windows profile. Playwright connects to
 that installed WebView2 on loopback and clicks the normal **Update Now** button.
 No mock IPC, test update feature or direct `update_install` call is used. It
@@ -115,7 +115,10 @@ the newer installed version and a successful no-new-update check, and compares
 the synthetic records, history, settings, documents, chats, notifications,
 accounting, model-cache marker and companion metadata. It also requires a new
 nonempty pre-install backup. This workflow has not run against a published
-release yet; preparation/syntax checks are not acceptance evidence.
+release yet; preparation/syntax checks are not acceptance evidence. The Windows tooling
+run [40074597418](https://github.com/BirthrightPublication/Atlas/actions/runs/40074597418)
+passed JavaScript syntax, all PowerShell parsing, signing-diagnostic tests and
+the owner-helper CI refusal at `b55ef8a06f17f67b9727afe0c43887b2d5a2d43e`.
 
 1. Signing configuration is verified; reuse this exact permanent identity for
    both versions and all subsequent releases.

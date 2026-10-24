@@ -55,6 +55,17 @@ if (
     "The expected newer release is not the real published stable release.",
   );
 const folder = path.resolve("release/windows-x86_64");
+const bootstrapRelease = JSON.parse(
+  run("gh", ["api", `repos/${repo}/releases/tags/${tag}`], true),
+);
+if (
+  bootstrapRelease.draft ||
+  bootstrapRelease.prerelease ||
+  bootstrapRelease.tag_name !== tag
+)
+  throw Error(
+    "The owner-approved bootstrap must also be published before public-feed acceptance.",
+  );
 await mkdir(folder, { recursive: true });
 const filename = `Birthright-Atlas_${base}_windows_x86_64-setup.exe`;
 const names = [

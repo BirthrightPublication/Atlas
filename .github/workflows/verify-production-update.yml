@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       bootstrap_tag:
-        description: Existing permanent-key bootstrap release tag (may remain draft)
+        description: Approved and published permanent-key bootstrap release tag
         required: true
         default: v0.5.0
         type: string
