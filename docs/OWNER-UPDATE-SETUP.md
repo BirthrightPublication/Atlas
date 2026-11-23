@@ -109,6 +109,45 @@ output, sends secrets through standard input rather than command arguments,
 restores its process environment and refuses CI execution. It does not publish
 a release. Retain the encrypted backup of your original identity.
 
+## Release upload permission fallback
+
+The owner-approved V0.6 signed builds passed, but the Actions release job failed
+at `gh release upload` with `HTTP 403: Resource not accessible by integration`.
+This is a **release publication authorization** failure, not a Tauri signing or
+download error.
+
+The release workflow's draft job already requests `contents: write`. First
+review **Repository Settings → Actions → General → Workflow permissions**, and
+check whether organization/repository policy restricts the built-in
+`GITHUB_TOKEN`. Do not weaken branch protection to work around the failure.
+
+If the built-in token remains restricted, create a **fine-grained personal access
+token** on the trusted owner account, with access only to
+`BirthrightPublication/Atlas` and **Contents: Read and write**. Store it in
+**Repository Settings → Environments → release-signing → Environment secrets**
+under `ATLAS_RELEASE_TOKEN`. Do not put its value in the repo, chat, Actions
+inputs or logs. Apply an expiry and revoke/rotate it when no longer needed.
+If organizational policy requires approval of the token, obtain that approval.
+
+The draft-release step now uses
+`secrets.ATLAS_RELEASE_TOKEN || github.token` and still makes a **draft only**;
+publication requires separate owner approval. The optional token must never
+be embedded in the Atlas installer, used as a model key, or sent to the client.
+If the GitHub App or environment lacks permission to add this secret, the owner
+must configure it directly in GitHub.
+
+Once PR #6's reviewed changes are merged into `main`, use **Actions → Prepare
+signed draft release → Run workflow**. For V0.6, existing signed artifacts may
+be reusable using the workflow's verified `reuse_run` input if still retained;
+otherwise rebuild with the same permanent signing identity. Verify the complete
+draft has every platform artifact, `latest.json`, signatures and checksums
+before publication. Do not publish an empty placeholder draft.
+
+The stable `latest.json` endpoint must be reachable publicly before Atlas
+can report `Update available`. Never use temporary Actions ZIP URLs as the
+permanent in-app update feed. User data is preserved by the existing
+backed-up signed installer path.
+
 ## 3. Integrate the reviewed application and workflow
 
 PR #5 has been merged by the owner and preserves all stacked v0.1–v0.4 commits.
