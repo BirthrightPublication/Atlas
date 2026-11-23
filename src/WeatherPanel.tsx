@@ -61,7 +61,7 @@ export function WeatherPanel({ records }: { records: AtlasRecord[] }) {
     ? { label: stay!.label, latitude:stay!.latitude!, longitude:stay!.longitude!, arrival:stay!.arrival }
     : manual;
   // Selecting a saved stay without coordinates never uploads its address.
-  const selectedDisplay = stay?.label || destination?.label || "Select a destination";
+  const selectedDisplay = manual?.label || stay?.label || destination?.label || "Select a destination";
   const key = destination ? `${destination.latitude.toFixed(2)},${destination.longitude.toFixed(2)}:${temperatureUnit}` : "";
 
   useEffect(() => {
