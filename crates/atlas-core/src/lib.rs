@@ -13,6 +13,7 @@ pub mod planning;
 pub mod recurrence;
 pub mod releases;
 pub mod schedule;
+pub mod weather;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use chrono::{DateTime, Duration, NaiveDate, Utc};
