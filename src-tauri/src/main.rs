@@ -29,6 +29,13 @@ async fn atlas_call(
     if method == "ai.cancel" {
         return Ok(atlas_core::ai::cancel());
     }
+    if method.starts_with("weather.") {
+        return tauri::async_runtime::spawn_blocking(move || {
+            atlas_core::weather::query(&method, &payload.unwrap_or_else(|| json!({})))
+        })
+        .await
+        .map_err(|_| "Weather worker interrupted".to_string())?;
+    }
     if method.starts_with("companion.") {
         let companion = companion_state.inner().clone();
         return tauri::async_runtime::spawn_blocking(move || {
