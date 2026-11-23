@@ -1,4 +1,5 @@
 import { JourneyPlanner } from "./JourneyPlanner";
+import { WeatherPanel } from "./WeatherPanel";
 import { useState } from "react";
 import {
   ArrowUpRight,
@@ -564,6 +565,7 @@ export function MapView({
         onRefresh={onRefresh}
         onSelect={onSelect}
       />
+      <WeatherPanel records={records} />
       <div className="map-layout">
         <div className="map-illustration">
           <div className="map-grid" />
