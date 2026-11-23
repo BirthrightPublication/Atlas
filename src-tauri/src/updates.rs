@@ -6,7 +6,31 @@ use std::sync::{
 };
 use std::time::Duration;
 use tauri::{Emitter, Manager, State};
-use tauri_plugin_updater::{Update, UpdaterExt};
+use tauri_plugin_updater::{Error as UpdateError, Update, UpdaterExt};
+
+fn check_error(error: UpdateError) -> String {
+    match error {
+        UpdateError::ReleaseNotFound => "The production update endpoint has no accessible published manifest. Check that a signed stable release has been published; this check did not establish that Atlas is up to date.".into(),
+        UpdateError::TargetNotFound(_) | UpdateError::TargetsNotFound(_) => "The published release has no compatible update for this platform. The installed application was not changed.".into(),
+        UpdateError::Serialization(_) => "The published update manifest is malformed. Atlas could not check for a compatible signed release.".into(),
+        other => format!("Could not reach or validate the compatible signed update feed: {other}"),
+    }
+}
+
+fn download_error(error: UpdateError) -> String {
+    let reason = match error {
+        UpdateError::Minisign(_) | UpdateError::Base64(_) | UpdateError::SignatureUtf8(_)
+        | UpdateError::SignedVersionMismatch { .. } | UpdateError::MissingSignedVersion =>
+            "Signature verification failed. The package did not authenticate for this release and signing identity.".to_owned(),
+        UpdateError::Reqwest(error) if error.is_timeout() => "Download timed out. Reconnect and retry the signed release.".into(),
+        UpdateError::Reqwest(error) if error.is_body() => "Download was interrupted before the package was complete. Retry the signed release.".into(),
+        UpdateError::Reqwest(_) => "The HTTPS download failed. Check the network connection, certificate trust and release availability.".into(),
+        UpdateError::Network(status) => format!("Download failed: {status}"),
+        UpdateError::Io(error) => format!("The downloaded package could not be read or saved ({:?}).", error.kind()),
+        _ => "The update package could not be downloaded and verified.".into(),
+    };
+    format!("{reason} No update was installed and no unsigned fallback was used; your data and backup are intact.")
+}
 
 #[derive(Default)]
 pub struct UpdateState {
@@ -114,7 +138,7 @@ pub async fn check(app: &tauri::AppHandle, state: &UpdateState) -> Result<Value,
         .map_err(|_| "Could not initialize signed updater")?
         .check()
         .await
-        .map_err(|e| format!("Could not check the compatible signed update feed: {e}"))?;
+        .map_err(check_error)?;
     if let Some(u) = &mut update {
         u.timeout = Some(Duration::from_secs(120));
         if u.target != target
@@ -185,9 +209,9 @@ pub async fn install(
         tauri::async_runtime::spawn_blocking(move||service.lock().map_err(|_|"Application service unavailable")?.call("backup.export",json!({}))).await.map_err(|_|"Backup worker interrupted")??;
         let mut downloaded=0u64;let handle=app.clone();let verify=app.clone();
         progress(app,"Downloading",Some(0),None,None);
-        let bytes=update.download(move|chunk,total|{downloaded=downloaded.saturating_add(chunk as u64);progress(&handle,"Downloading",Some(downloaded),total,None);},move||progress(&verify,"Verifying signature",None,None,None)).await.map_err(|_|"Download or signature verification failed. No unsigned fallback was used; your data and backup are intact.")?;
+        let bytes=update.download(move|chunk,total|{downloaded=downloaded.saturating_add(chunk as u64);progress(&handle,"Downloading",Some(downloaded),total,None);},move||progress(&verify,"Verifying signature",None,None,None)).await.map_err(download_error)?;
         progress(app,"Installing",None,None,None);
-        update.install(bytes).map_err(|_|"Verified update could not be installed. Your data backup is retained.")?;
+        update.install(bytes).map_err(|error|format!("Installation failed after signature verification: {error}. Your data backup is retained."))?;
         progress(app,"Restarting",None,None,None);
         app.restart();
     }.await;
@@ -195,4 +219,36 @@ pub async fn install(
         progress(app, "Failed", None, None, Some(reason));
     }
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn missing_manifest_and_platform_never_report_up_to_date() {
+        assert!(check_error(UpdateError::ReleaseNotFound).contains("did not establish"));
+        assert!(
+            check_error(UpdateError::TargetNotFound("windows-x86_64".into()))
+                .contains("no compatible update")
+        );
+    }
+
+    #[test]
+    fn signature_and_transport_failures_are_distinct() {
+        assert!(download_error(UpdateError::MissingSignedVersion)
+            .starts_with("Signature verification failed"));
+        let transport = download_error(UpdateError::Network(
+            "Download request failed with status: 503".into(),
+        ));
+        assert!(transport.starts_with("Download failed"));
+        assert!(transport.contains("503"));
+        assert!(!transport.contains("Signature verification failed"));
+        let io = download_error(UpdateError::Io(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "synthetic private path must not be echoed",
+        )));
+        assert!(io.contains("PermissionDenied"));
+        assert!(!io.contains("synthetic private path"));
+    }
 }

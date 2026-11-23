@@ -205,7 +205,7 @@ test("Settings save/discard navigation preserves records and concurrent settings
     await expect(page.getByRole("tabpanel")).toBeVisible();
   }
   await expect(
-    page.getByText("Version 0.5.0 · Development preview", { exact: true }),
+    page.getByText("Version 0.6.0 · Development preview", { exact: true }),
   ).toBeVisible();
 });
 
@@ -429,15 +429,13 @@ test("duplicate stays, linked documents and hypothetical transport leave origina
   await page
     .getByLabel("Name", { exact: true })
     .fill("Synthetic duplicate draft");
-  await page
-    .getByLabel("Attach booking document")
-    .setInputFiles({
-      name: "synthetic-ticket.txt",
-      mimeType: "text/plain",
-      buffer: Buffer.from(
-        "Synthetic attachment for the v0.3 duplicate acceptance test.",
-      ),
-    });
+  await page.getByLabel("Attach booking document").setInputFiles({
+    name: "synthetic-ticket.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from(
+      "Synthetic attachment for the v0.3 duplicate acceptance test.",
+    ),
+  });
   await expect(page.getByText(/1 linked documents/)).toBeVisible();
   await page.getByRole("button", { name: "Save stay", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);

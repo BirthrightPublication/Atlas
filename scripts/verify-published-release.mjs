@@ -8,15 +8,23 @@ if (!key)
     "Set the public verification key locally; no private key is needed.",
   );
 const get = async (url) => {
-  for (let hop=0;hop<9;hop++) {
-    const parsed=new URL(url);
-    if(parsed.protocol!=="https:"||parsed.username||parsed.password)throw Error("HTTPS URLs without embedded credentials required");
-    const response=await fetch(parsed,{redirect:"manual",signal:AbortSignal.timeout(120000)});
-    if([301,302,303,307,308].includes(response.status)) {
-      const location=response.headers.get("location");if(!location)throw Error("Missing redirect target");
-      url=new URL(location,parsed).href;await response.body?.cancel();continue;
+  for (let hop = 0; hop < 9; hop++) {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:" || parsed.username || parsed.password)
+      throw Error("HTTPS URLs without embedded credentials required");
+    const response = await fetch(parsed, {
+      redirect: "manual",
+      signal: AbortSignal.timeout(120000),
+    });
+    if ([301, 302, 303, 307, 308].includes(response.status)) {
+      const location = response.headers.get("location");
+      if (!location) throw Error("Missing redirect target");
+      url = new URL(location, parsed).href;
+      await response.body?.cancel();
+      continue;
     }
-    if(!response.ok)throw Error(`Published endpoint returned HTTP ${response.status}`);
+    if (!response.ok)
+      throw Error(`Published endpoint returned HTTP ${response.status}`);
     return response;
   }
   throw Error("Too many published-artifact redirects");
@@ -29,6 +37,13 @@ if (release.draft || release.prerelease)
 const manifest = await (
   await get(`https://github.com/${repo}/releases/latest/download/latest.json`)
 ).json();
+if (
+  process.env.ATLAS_EXPECTED_RELEASE_VERSION &&
+  manifest.version !== process.env.ATLAS_EXPECTED_RELEASE_VERSION
+)
+  throw Error(
+    "The published manifest is not the explicitly expected release version",
+  );
 if (
   release.tag_name !== `v${manifest.version}` ||
   !/^\d+\.\d+\.\d+$/.test(manifest.version)

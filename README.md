@@ -5,7 +5,7 @@ and money. The native desktop application uses Tauri 2, React/TypeScript, Rust
 services, and SQLite. An optional paired phone companion shares the same service
 boundary and keeps an explicit offline edit queue.
 
-**Version 0.5.0: development candidate.** Connect read-only booking mailboxes,
+**Version 0.6.0: signed release preparation.** Connect read-only booking mailboxes,
 review reservations and revisions in the Import Center, compare saved offers,
 and check Trip Readiness. V0.5 adds native Local AI model management, reviewed
 journey planning and selected offline trip information. The approved neutral dark interface, bottom dock,
