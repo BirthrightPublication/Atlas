@@ -710,6 +710,9 @@ async fn rpc(
     let receipt_id = request.request_id.clone();
     let method = request.method.clone();
     let result = tokio::task::spawn_blocking(move || {
+        if dev && request.method.starts_with("weather.") {
+            return atlas_core::weather::query(&request.method, &request.payload);
+        }
         if dev
             && request.method.starts_with("ai.")
             && request.method != "ai.status"
