@@ -172,5 +172,8 @@ jobs:
         id: create_draft
         run: node scripts/create-draft-release.mjs
         env:
-          GH_TOKEN: ${{ github.token }}
+          # If the default GITHUB_TOKEN is restricted, configure ATLAS_RELEASE_TOKEN
+          # as a Contents: Read and write fine-grained token scoped to this repository
+          # in the protected release-signing environment. Never use it for unsigned builds.
+          GH_TOKEN: ${{ secrets.ATLAS_RELEASE_TOKEN || github.token }}
           ATLAS_RELEASE_NOTES: ${{ inputs.notes }}
