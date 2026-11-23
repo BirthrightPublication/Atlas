@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { CloudSun, RefreshCw, Search, CloudRain, Sun, Cloud, CloudSnow, Wind, Droplets } from "lucide-react";
 import { AtlasRecord, rpc } from "./api";
 import "./weather.css";
@@ -56,7 +56,7 @@ export function WeatherPanel({ records }: { records: AtlasRecord[] }) {
   const [selectedDate, setSelectedDate] = useState("");
   const [reload, setReload] = useState(0);
   const stay = stays.find((s) => s.id === selectedId);
-  const available = stay && Number.isFinite(stay.latitude) && Number.isFinite(stay.longitude);
+  const available = !!stay && typeof stay.latitude === "number" && Number.isFinite(stay.latitude) && typeof stay.longitude === "number" && Number.isFinite(stay.longitude);
   const destination: Destination | null = available
     ? { label: stay!.label, latitude:stay!.latitude!, longitude:stay!.longitude!, arrival:stay!.arrival }
     : manual;
@@ -93,7 +93,7 @@ export function WeatherPanel({ records }: { records: AtlasRecord[] }) {
     return () => { active = false; };
   }, [key,reload]);
 
-  async function findCity(event: React.FormEvent) {
+  async function findCity(event: FormEvent) {
     event.preventDefault();
     setSearching(true); setCities([]); setError("");
     try {
@@ -132,7 +132,7 @@ export function WeatherPanel({ records }: { records: AtlasRecord[] }) {
       </div>
       <label className="weather-stay-label">Upcoming accommodation
         <select value={selectedId} onChange={e=>{setSelectedId(e.target.value);setManual(null);setCities([]);setReload(0);}}>
-          <option value="">Select a city manually</option>
+          <option value="manual">Select a city manually</option>
           {stays.map(s=><option key={s.id} value={s.id}>{s.label}{s.arrival ? ` · ${s.arrival}` : ""}</option>)}
         </select>
       </label>
